@@ -33,6 +33,7 @@ data class DetectedDiagram(
     val rotation: Rotation,
     /** 0..1: qué tan segura es la orientación detectada. */
     val rotationConfidence: Double,
+    val rotationSource: OrientationSource,
     /** 0..1: qué tan seguro es que se trate de un diagrama. */
     val confidence: Double,
     val method: DetectionMethod,
@@ -177,7 +178,7 @@ class DiagramDetector(private val params: Params = Params()) {
                 DetectedDiagram(
                     box = box, gridBox = c.grid,
                     cellWidth = c.stats.cellWidth, cellHeight = c.stats.cellHeight,
-                    rotation = orient.rotation, rotationConfidence = orient.confidence,
+                    rotation = orient.rotation, rotationConfidence = orient.confidence, rotationSource = orient.source,
                     confidence = conf, method = DetectionMethod.GRID, stats = c.stats, notes = n,
                 )
             )

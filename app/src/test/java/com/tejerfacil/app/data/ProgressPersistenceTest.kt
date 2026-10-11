@@ -1,0 +1,97 @@
+package com.tejerfacil.app.data
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.tejerfacil.app.data.db.AppDatabase
+import com.tejerfacil.app.data.db.DiagramEntity
+import com.tejerfacil.app.data.db.PatternEntity
+import com.tejerfacil.app.data.db.ProgressEntity
+import com.tejerfacil.app.data.db.RowEntity
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
+
+@RunWith(AndroidJUnit4::class)
+@Config(sdk = [34], application = android.app.Application::class)
+class ProgressPersistenceTest {
+    private lateinit var db: AppDatabase
+    private lateinit var repo: PatternRepository
+
+    @Before
+    fun setUp() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        db = AppDatabase.inMemory(ctx)
+        repo = PatternRepository(db, FileStore(ctx), SettingsRepository(ctx))
+    }
+
+    @After
+    fun tearDown() = db.close()
+
+    private suspend fun newPattern(): Long = db.patterns().insert(
+        PatternEntity(name = "Jersey", fileName = "jersey.pdf", pdfPath = "/tmp/x.pdf", pageCount = 3, importedAt = 1L, status = "READY")
+    )
+
+    private suspend fun newDiagram(patternId: Long, page: Int): Long = db.diagrams().insert(
+        DiagramEntity(patternId = patternId, pageIndex = page, indexInPage = 0, name = "D$page",
+            cropLeft = 0.1, cropTop = 0.1, cropRight = 0.9, cropBottom = 0.5, rotation = 90)
+    )
+
+    @Test
+    fun elProgresoSeGuardaYEsIndependientePorDiagrama() = runTest {
+        val pid = newPattern()
+        val d1 = newDiagram(pid, 0)
+        val d2 = newDiagram(pid, 1)
+        db.rows().replace(d1, (0 until 40).map { RowEntity(diagramId = d1, orderIndex = it, top = it / 40.0, bottom = (it + 1) / 40.0, left = 0.0, right = 1.0) })
+        db.rows().replace(d2, (0 until 10).map { RowEntity(diagramId = d2, orderIndex = it, top = it / 10.0, bottom = (it + 1) / 10.0, left = 0.0, right = 1.0) })
+
+        val p1 = repo.progressFor(d1)
+        repo.saveProgress(p1.copy(currentRow = 17, zoom = 2.5f, centerX = 0.3f, centerY = 0.62f, highlightColor = 0xFF4CAF50.toInt(), highlightAlpha = 0.5f))
+        val p2 = repo.progressFor(d2)
+        repo.saveProgress(p2.copy(currentRow = 3))
+
+        val r1 = db.progress().get(d1)!!
+        assertEquals(17, r1.currentRow)
+        assertEquals(2.5f, r1.zoom)
+        assertEquals(0.3f, r1.centerX)
+        assertEquals(0.62f, r1.centerY)
+        assertEquals(0xFF4CAF50.toInt(), r1.highlightColor)
+        assertEquals(0.5f, r1.highlightAlpha)
+        assertEquals(3, db.progress().get(d2)!!.currentRow)
+
+        // La galería ve el progreso de cada diagrama.
+        val items = db.diagrams().observeForPattern(pid).first()
+        assertEquals(listOf(17, 3), items.map { it.currentRow })
+        assertEquals(listOf(40, 10), items.map { it.rowCount })
+        assertEquals(90, items[0].diagram.rotation)
+    }
+
+    @Test
+    fun alReducirLasFilasLaFilaActualSeAjusta() = runTest {
+        val pid = newPattern()
+        val d = newDiagram(pid, 0)
+        db.progress().upsert(ProgressEntity(diagramId = d, currentRow = 30))
+        repo.saveRows(d, (0 until 12).map { RowEntity(diagramId = d, orderIndex = it, top = 0.0, bottom = 0.1, left = 0.0, right = 1.0) }, "TOP_DOWN")
+        assertEquals(11, db.progress().get(d)!!.currentRow)
+        assertEquals("TOP_DOWN", db.diagrams().get(d)!!.readingOrder)
+        assertEquals(12, db.rows().listForDiagram(d).size)
+    }
+
+    @Test
+    fun borrarElPatronBorraDiagramasFilasYProgreso() = runTest {
+        val pid = newPattern()
+        val d = newDiagram(pid, 0)
+        db.rows().replace(d, listOf(RowEntity(diagramId = d, orderIndex = 0, top = 0.0, bottom = 0.1, left = 0.0, right = 1.0)))
+        repo.progressFor(d)
+        repo.deletePattern(pid)
+        assertNull(db.diagrams().get(d))
+        assertNull(db.progress().get(d))
+        assertEquals(0, db.rows().listForDiagram(d).size)
+    }
+}

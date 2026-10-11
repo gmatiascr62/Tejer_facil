@@ -1,0 +1,184 @@
+package com.tejerfacil.app.ui.reader
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FitScreen
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.ZoomOutMap
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tejerfacil.app.AppContainer
+import com.tejerfacil.app.input.VolumeKeys
+import com.tejerfacil.app.ui.common.HighlightDialog
+import com.tejerfacil.app.ui.common.rememberImageFromFile
+import com.tejerfacil.core.geometry.NormRect
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Unit, onBack: () -> Unit) {
+    val vm: ReaderViewModel = viewModel(key = "lector_$diagramId") { ReaderViewModel(container, diagramId) }
+    val diagram by vm.diagram.collectAsState()
+    val rowEntities by vm.rows.collectAsState()
+    val progress by vm.progress.collectAsState()
+    val settings by vm.settings.collectAsState()
+    val image = rememberImageFromFile(diagram?.imagePath)
+    var command by remember { mutableStateOf<ViewerCommand?>(null) }
+    var showColors by remember { mutableStateOf(false) }
+
+    val rows = remember(rowEntities) { rowEntities.map { NormRect(it.left, it.top, it.right, it.bottom) } }
+    val current = progress?.currentRow ?: 0
+
+    // Teclas de volumen: solo mientras el lector está abierto y la opción está activa.
+    DisposableEffect(settings.volumeKeys) {
+        VolumeKeys.active = settings.volumeKeys
+        onDispose { VolumeKeys.active = false }
+    }
+    LaunchedEffect(Unit) {
+        VolumeKeys.events.collect { d -> if (d > 0) vm.next() else vm.previous() }
+    }
+    val view = LocalView.current
+    DisposableEffect(settings.keepScreenOn) {
+        view.keepScreenOn = settings.keepScreenOn
+        onDispose { view.keepScreenOn = false }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(diagram?.name ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } },
+                actions = {
+                    IconButton(onClick = { command = ViewerCommand(ViewerCommandKind.FIT_WIDTH) }) {
+                        Icon(Icons.Filled.FitScreen, contentDescription = "Ajustar al ancho")
+                    }
+                    IconButton(onClick = { command = ViewerCommand(ViewerCommandKind.RESET) }) {
+                        Icon(Icons.Filled.ZoomOutMap, contentDescription = "Restablecer zoom")
+                    }
+                    IconButton(onClick = { showColors = true }) { Icon(Icons.Filled.Palette, contentDescription = "Color del resaltado") }
+                    IconButton(onClick = onEditRows) { Icon(Icons.Filled.Edit, contentDescription = "Editar filas") }
+                },
+            )
+        },
+        bottomBar = {
+            Surface(tonalElevation = 3.dp) {
+                Row(
+                    Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FilledTonalButton(
+                        onClick = { vm.previous() },
+                        enabled = rows.isNotEmpty() && current > 0,
+                        modifier = Modifier.weight(1f).height(72.dp),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, Modifier.size(32.dp))
+                        Text("Fila anterior", textAlign = TextAlign.Center)
+                    }
+                    Column(Modifier.width(112.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (rows.isNotEmpty()) {
+                            Text("Fila ${current + 1} de ${rows.size}", fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                            rowEntities.getOrNull(current)?.label?.let {
+                                Text("nº $it en el gráfico", style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                            }
+                        } else {
+                            Text("Sin filas", textAlign = TextAlign.Center)
+                        }
+                    }
+                    Button(
+                        onClick = { vm.next() },
+                        enabled = rows.isNotEmpty() && current < rows.size - 1,
+                        modifier = Modifier.weight(1f).height(72.dp),
+                    ) {
+                        Text("Fila siguiente", textAlign = TextAlign.Center)
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(32.dp))
+                    }
+                }
+            }
+        },
+    ) { padding ->
+        Box(Modifier.padding(padding).fillMaxSize().background(Color.White)) {
+            val img = image
+            val p = progress
+            if (img == null || p == null) {
+                CircularProgressIndicator(Modifier.align(Alignment.Center))
+            } else {
+                ChartViewer(
+                    image = img,
+                    rows = rows,
+                    activeIndex = current,
+                    highlight = Color(p.highlightColor),
+                    highlightAlpha = p.highlightAlpha,
+                    showOutlines = settings.showRowOutlines,
+                    initialView = remember(diagramId) { SavedView(p.zoom, p.centerX, p.centerY) },
+                    command = command,
+                    onViewChanged = vm::onViewChanged,
+                    onRowTap = vm::goTo,
+                )
+                if (rows.isEmpty()) {
+                    Surface(
+                        Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                        tonalElevation = 6.dp, shape = MaterialTheme.shapes.medium,
+                    ) {
+                        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("No se pudieron reconocer las filas de este diagrama.", textAlign = TextAlign.Center)
+                            Spacer(Modifier.height(8.dp))
+                            Button(onClick = onEditRows) { Text("Definir filas") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showColors) {
+        val p = progress
+        if (p != null) {
+            HighlightDialog(p.highlightColor, p.highlightAlpha, onDismiss = { showColors = false }) { c, a ->
+                vm.setHighlight(c, a)
+                showColors = false
+            }
+        }
+    }
+}
+

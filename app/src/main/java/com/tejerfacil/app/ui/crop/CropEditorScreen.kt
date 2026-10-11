@@ -22,10 +22,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CallMerge
+import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.HorizontalSplit
-import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.VerticalSplit
@@ -105,7 +105,7 @@ fun CropEditorScreen(container: AppContainer, patternId: Long, initialPage: Int,
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         ToolButton(Icons.Filled.Add, "Agregar") { vm.add() }
                         ToolButton(Icons.Filled.Delete, "Eliminar", enabled = selected.isNotEmpty()) { vm.deleteSelected() }
-                        ToolButton(Icons.Filled.RotateRight, "Girar 90°", enabled = selected.isNotEmpty()) { vm.rotateSelected() }
+                        ToolButton(Icons.AutoMirrored.Filled.RotateRight, "Girar 90°", enabled = selected.isNotEmpty()) { vm.rotateSelected() }
                         ToolButton(Icons.Filled.HorizontalSplit, "Dividir ↕", enabled = selected.size == 1) { vm.splitSelected(true) }
                         ToolButton(Icons.Filled.VerticalSplit, "Dividir ↔", enabled = selected.size == 1) { vm.splitSelected(false) }
                     }
@@ -116,7 +116,7 @@ fun CropEditorScreen(container: AppContainer, patternId: Long, initialPage: Int,
                             }
                             Text("Varios", style = MaterialTheme.typography.labelSmall)
                         }
-                        ToolButton(Icons.Filled.CallMerge, "Unir", enabled = selected.size >= 2) { vm.mergeSelected() }
+                        ToolButton(Icons.AutoMirrored.Filled.CallMerge, "Unir", enabled = selected.size >= 2) { vm.mergeSelected() }
                         IconButton(onClick = { vm.loadPage(page - 1) }, enabled = !dirty && page > 0) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Página anterior")
                         }

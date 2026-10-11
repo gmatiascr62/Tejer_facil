@@ -68,21 +68,21 @@ interface DiagramDao {
 }
 
 @Dao
-interface RowDao {
+abstract class RowDao {
     @Query("SELECT * FROM diagram_rows WHERE diagramId = :diagramId ORDER BY orderIndex")
-    suspend fun listForDiagram(diagramId: Long): List<RowEntity>
+    abstract suspend fun listForDiagram(diagramId: Long): List<RowEntity>
 
     @Query("SELECT * FROM diagram_rows WHERE diagramId = :diagramId ORDER BY orderIndex")
-    fun observeForDiagram(diagramId: Long): Flow<List<RowEntity>>
+    abstract fun observeForDiagram(diagramId: Long): Flow<List<RowEntity>>
 
     @Query("DELETE FROM diagram_rows WHERE diagramId = :diagramId")
-    suspend fun deleteForDiagram(diagramId: Long)
+    abstract suspend fun deleteForDiagram(diagramId: Long)
 
     @Insert
-    suspend fun insertAll(rows: List<RowEntity>)
+    abstract suspend fun insertAll(rows: List<RowEntity>)
 
     @Transaction
-    suspend fun replace(diagramId: Long, rows: List<RowEntity>) {
+    open suspend fun replace(diagramId: Long, rows: List<RowEntity>) {
         deleteForDiagram(diagramId)
         insertAll(rows.map { it.copy(id = 0, diagramId = diagramId) })
     }

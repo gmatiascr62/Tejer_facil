@@ -89,9 +89,9 @@ progreso (Robolectric + Room) y del posicionamiento del resaltado con zoom (`Vie
 ## Limitaciones conocidas (requieren corrección manual)
 
 - **Filas de más o de menos en casos puntuales**: tiras de números de columna dibujadas *dentro*
-  de la cuadrícula (p. ej. a mitad del gráfico) se cuentan como una fila (Jasmine trasera 9–12:
-  151 filas detectadas para 137 reales); la última fila pegada a una barra de color puede no
-  detectarse (Jasmine delantera 0–1 mes: 97 de 99). Se corrige en el editor de filas.
+  de la cuadrícula (p. ej. a mitad del gráfico) pueden contarse como una fila (Jasmine trasera
+  9–12: 151 filas detectadas para 137 reales), y en algunos gráficos falta alguna fila
+  (Jasmine delantera 0–1 mes: 97 de 99). Se corrige en el editor de filas.
 - **Gráficos sin líneas de cuadrícula** (solo símbolos o celdas de color sin bordes): no se
   detectan automáticamente; hay que marcarlos en el editor de recortes. Sus filas se estiman por
   el perfil de tinta y se marcan "Revisar".

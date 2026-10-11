@@ -94,3 +94,10 @@ dependencies {
     testImplementation(libs.androidx.test.junit)
     testImplementation(libs.coroutines.test)
 }
+
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("passed", "failed", "skipped")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+}

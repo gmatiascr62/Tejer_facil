@@ -1,0 +1,56 @@
+[versions]
+agp = "8.7.3"
+kotlin = "2.0.21"
+ksp = "2.0.21-1.0.28"
+composeBom = "2024.12.01"
+activityCompose = "1.9.3"
+coreKtx = "1.15.0"
+lifecycle = "2.8.7"
+navigation = "2.8.5"
+room = "2.6.1"
+datastore = "1.1.1"
+coroutines = "1.9.0"
+opencvAndroid = "4.9.0"
+opencvJvm = "4.9.0-0"
+pdfboxAndroid = "2.0.27.0"
+pdfbox = "2.0.32"
+junit = "4.13.2"
+robolectric = "4.14.1"
+androidxTestCore = "1.6.1"
+androidxTestJunit = "1.2.1"
+
+[libraries]
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-material-icons = { module = "androidx.compose.material:material-icons-extended" }
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+opencv-android = { module = "org.opencv:opencv", version.ref = "opencvAndroid" }
+opencv-jvm = { module = "org.openpnp:opencv", version.ref = "opencvJvm" }
+pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfboxAndroid" }
+pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
+junit = { module = "junit:junit", version.ref = "junit" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTestCore" }
+androidx-test-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestJunit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

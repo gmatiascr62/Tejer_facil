@@ -19,8 +19,10 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
+      # El runner ubuntu-latest ya incluye el Android SDK (ANDROID_HOME);
+      # Gradle descarga automáticamente la plataforma que falte.
+      - name: Verificar Android SDK
+        run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME/platforms" || true
 
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4

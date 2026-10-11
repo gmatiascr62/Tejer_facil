@@ -20,7 +20,11 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
@@ -70,6 +74,20 @@ fun GalleryScreen(
     var menuFor by remember { mutableStateOf<DiagramListItem?>(null) }
     var renaming by remember { mutableStateOf<DiagramListItem?>(null) }
     var deleting by remember { mutableStateOf<DiagramListItem?>(null) }
+    var busy by remember { mutableStateOf<String?>(null) }
+
+    fun rotate(id: Long, delta: Int) {
+        if (busy != null) return
+        busy = "Girando el diagrama y reconociendo las filas…"
+        scope.launch {
+            busy = try {
+                container.importer.rotateDiagram(id, delta)
+                null
+            } catch (t: Throwable) {
+                "Error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -113,6 +131,8 @@ fun GalleryScreen(
                         DiagramCard(item, onClick = { onOpenDiagram(item.diagram.id) }, onLongClick = { menuFor = item })
                         DropdownMenu(expanded = menuFor?.diagram?.id == item.diagram.id, onDismissRequest = { menuFor = null }) {
                             DropdownMenuItem(text = { Text("Abrir") }, onClick = { menuFor = null; onOpenDiagram(item.diagram.id) })
+                            DropdownMenuItem(text = { Text("Girar 90° ↻") }, onClick = { menuFor = null; rotate(item.diagram.id, 90) })
+                            DropdownMenuItem(text = { Text("Girar 90° ↺") }, onClick = { menuFor = null; rotate(item.diagram.id, -90) })
                             DropdownMenuItem(text = { Text("Cambiar nombre") }, onClick = { renaming = item; menuFor = null })
                             DropdownMenuItem(text = { Text("Editar recorte de la página ${item.diagram.pageIndex + 1}") }, onClick = { menuFor = null; onEditCrops(item.diagram.pageIndex) })
                             DropdownMenuItem(text = { Text("Eliminar") }, onClick = { deleting = item; menuFor = null })
@@ -121,6 +141,20 @@ fun GalleryScreen(
                 }
             }
         }
+    }
+
+    busy?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { if (msg.startsWith("Error")) busy = null },
+            title = { Text("Girar diagrama") },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!msg.startsWith("Error")) CircularProgressIndicator(Modifier.padding(end = 16.dp))
+                    Text(msg)
+                }
+            },
+            confirmButton = { if (msg.startsWith("Error")) TextButton(onClick = { busy = null }) { Text("Aceptar") } },
+        )
     }
 
     renaming?.let { item ->

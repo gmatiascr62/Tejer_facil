@@ -58,6 +58,25 @@ class ReaderViewModel(private val c: AppContainer, val diagramId: Long) : ViewMo
         }
     }
 
+    private val _busy = MutableStateFlow<String?>(null)
+    val busy: StateFlow<String?> = _busy.asStateFlow()
+
+    /** Gira el diagrama 90° (+90 horario, -90 antihorario) y vuelve a reconocer las filas. */
+    fun rotateDiagram(delta: Int) {
+        if (_busy.value != null) return
+        viewModelScope.launch {
+            _busy.value = "Girando el diagrama y reconociendo las filas…"
+            try {
+                c.importer.rotateDiagram(diagramId, delta)
+                _busy.value = null
+            } catch (t: Throwable) {
+                _busy.value = "Error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
+
+    fun clearMessage() { _busy.value = null }
+
     fun setHighlight(color: Int, alpha: Float) {
         val p = _progress.value ?: return
         val np = p.copy(highlightColor = color, highlightAlpha = alpha)

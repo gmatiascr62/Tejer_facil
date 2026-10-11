@@ -22,7 +22,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.RotateLeft
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.ScreenRotation
@@ -74,6 +80,8 @@ fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Uni
     val image = rememberImageFromFile(diagram?.imagePath)
     var command by remember { mutableStateOf<ViewerCommand?>(null) }
     var showColors by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
+    val busy by vm.busy.collectAsState()
 
     val rows = remember(rowEntities) { rowEntities.map { NormRect(it.left, it.top, it.right, it.bottom) } }
     val current = progress?.currentRow ?: 0
@@ -124,7 +132,26 @@ fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Uni
                         Icon(Icons.Filled.ZoomOutMap, contentDescription = "Restablecer zoom")
                     }
                     IconButton(onClick = { showColors = true }) { Icon(Icons.Filled.Palette, contentDescription = "Color del resaltado") }
-                    IconButton(onClick = onEditRows) { Icon(Icons.Filled.Edit, contentDescription = "Editar filas") }
+                    Box {
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Más opciones") }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Girar diagrama 90° ↻") },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.RotateRight, null) },
+                                onClick = { menu = false; vm.rotateDiagram(90) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Girar diagrama 90° ↺") },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.RotateLeft, null) },
+                                onClick = { menu = false; vm.rotateDiagram(-90) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Editar filas") },
+                                leadingIcon = { Icon(Icons.Filled.Edit, null) },
+                                onClick = { menu = false; onEditRows() },
+                            )
+                        }
+                    }
                 },
             )
         },
@@ -182,7 +209,19 @@ fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Uni
                     onViewChanged = vm::onViewChanged,
                     onRowTap = vm::goTo,
                 )
-                if (rows.isEmpty()) {
+                busy?.let { msg ->
+                    Surface(
+                        Modifier.align(Alignment.Center).padding(24.dp),
+                        tonalElevation = 8.dp, shape = MaterialTheme.shapes.large,
+                    ) {
+                        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (!msg.startsWith("Error")) CircularProgressIndicator()
+                            Text(msg, Modifier.padding(top = 12.dp), textAlign = TextAlign.Center)
+                            if (msg.startsWith("Error")) TextButton(onClick = vm::clearMessage) { Text("Aceptar") }
+                        }
+                    }
+                }
+                if (rows.isEmpty() && busy == null) {
                     Surface(
                         Modifier.align(Alignment.BottomCenter).padding(16.dp),
                         tonalElevation = 6.dp, shape = MaterialTheme.shapes.medium,

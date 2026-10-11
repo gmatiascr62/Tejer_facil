@@ -200,6 +200,16 @@ class ImportManager(
         return md.digest().joinToString("") { "%02x".format(it) }
     }
 
+    /**
+     * Gira el diagrama [deltaDegrees] (múltiplo de 90, sentido horario) respecto
+     * de su orientación actual, vuelve a reconocer las filas y fija la rotación
+     * para que no se pierda en re-procesamientos posteriores.
+     */
+    suspend fun rotateDiagram(diagramId: Long, deltaDegrees: Int) {
+        val d = db.diagrams().get(diagramId) ?: return
+        rebuild(d, Rotation.fromDegrees(d.rotation + deltaDegrees))
+    }
+
     /** Re-procesa un diagrama (tras editar el recorte o la orientación). */
     suspend fun rebuild(diagram: DiagramEntity, forced: Rotation?) = withContext(Dispatchers.Default) {
         val pattern = db.patterns().get(diagram.patternId) ?: return@withContext null

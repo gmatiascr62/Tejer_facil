@@ -117,6 +117,22 @@ fun ChartViewer(
         vp = centered(v)
     }
 
+    // Cambio de tamaño de la vista (p. ej. al girar la pantalla): conservar el zoom
+    // relativo al ancho y volver a centrar la fila activa.
+    var lastSize by remember { mutableStateOf(IntSize.Zero) }
+    LaunchedEffect(viewSize) {
+        val v = vp
+        val old = lastSize
+        lastSize = viewSize
+        if (v == null || old == IntSize.Zero || old == viewSize || viewSize == IntSize.Zero) return@LaunchedEffect
+        anim?.cancel()
+        val oldFit = ViewportMath.fitWidthScale(imgW, old.width.toFloat())
+        val newScale = (v.scale / oldFit * ViewportMath.fitWidthScale(imgW, vw()))
+            .coerceIn(ViewportMath.minScale(imgW, imgH, vw(), vh()), ViewportMath.MAX_SCALE)
+        val cx = (old.width / 2f - v.offsetX) / v.scale
+        vp = centered(Viewport(newScale, vw() / 2f - cx * newScale, v.offsetY))
+    }
+
     // Al cambiar de fila: animar para dejarla en el centro, respetando el zoom.
     LaunchedEffect(activeIndex, rows) {
         val v = vp ?: return@LaunchedEffect

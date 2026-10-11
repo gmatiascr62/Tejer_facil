@@ -59,8 +59,9 @@ class ImportManager(
     val state: StateFlow<ImportState?> = _state.asStateFlow()
     private var job: Job? = null
 
-    fun start(uri: Uri) {
-        if (_state.value?.running == true) return
+    /** Inicia la importación; devuelve false si ya hay otra en curso. */
+    fun start(uri: Uri): Boolean {
+        if (_state.value?.running == true) return false
         _state.value = ImportState(fileName = queryName(uri), stage = "Preparando…")
         job = scope.launch(Dispatchers.Default) {
             try {
@@ -79,6 +80,7 @@ class ImportManager(
                 _state.value = _state.value?.copy(finished = true, error = "No se pudo procesar el PDF: ${t.message ?: t.javaClass.simpleName}")
             }
         }
+        return true
     }
 
     fun cancel() {
@@ -106,6 +108,14 @@ class ImportManager(
         withContext(Dispatchers.IO) {
             val input = context.contentResolver.openInputStream(uri) ?: error("No se puede leer el archivo")
             input.use { inp -> tmp.outputStream().use { inp.copyTo(it) } }
+        }
+        // Si el mismo PDF ya fue importado, se abre el existente (con su progreso).
+        findDuplicate(tmp)?.let { existing ->
+            tmp.delete()
+            _state.value = _state.value?.copy(
+                patternId = existing, stage = "Este PDF ya estaba importado", finished = true,
+            )
+            return
         }
         val pageCount = PdfPageRenderer(tmp).use { it.pageCount }
         val patternId = db.patterns().insert(
@@ -165,6 +175,29 @@ class ImportManager(
         }
         db.patterns().get(patternId)?.let { db.patterns().update(it.copy(status = "READY")) }
         _state.value = _state.value?.copy(stage = "Listo", page = pageCount, finished = true, diagramsFound = found)
+    }
+
+    private suspend fun findDuplicate(file: File): Long? {
+        val size = file.length()
+        val candidates = db.patterns().listAll().filter { p ->
+            p.status != "ERROR" && p.pdfPath.isNotBlank() && File(p.pdfPath).let { it.exists() && it.length() == size }
+        }
+        if (candidates.isEmpty()) return null
+        val hash = withContext(Dispatchers.IO) { sha256(file) }
+        return candidates.firstOrNull { withContext(Dispatchers.IO) { sha256(File(it.pdfPath)) } == hash }?.id
+    }
+
+    private fun sha256(f: File): String {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        f.inputStream().use { input ->
+            val buf = ByteArray(64 * 1024)
+            while (true) {
+                val n = input.read(buf)
+                if (n <= 0) break
+                md.update(buf, 0, n)
+            }
+        }
+        return md.digest().joinToString("") { "%02x".format(it) }
     }
 
     /** Re-procesa un diagrama (tras editar el recorte o la orientación). */

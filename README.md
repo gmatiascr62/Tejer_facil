@@ -36,6 +36,8 @@ Cada push al repositorio ejecuta el workflow **Android APK** (`.github/workflows
 | Zoom con dos dedos, desplazamiento, doble toque, ajustar al ancho, restablecer | Implementado |
 | Tocar una fila para seleccionarla; botones grandes "Fila anterior / siguiente" | Implementado |
 | Avanzar/retroceder con volumen +/− (opcional, solo en el lector) | Implementado |
+| Botón para girar la pantalla en el lector (solo gira si se toca; al salir vuelve a vertical) | Implementado |
+| Abrir un PDF desde el administrador de archivos ("Abrir con…") o "Compartir" | Implementado (si ya estaba importado, abre el existente) |
 | Editor de recortes: mover bordes, girar, agregar, eliminar, dividir, unir | Implementado |
 | Editor de filas: mover bordes, agregar, dividir en N, unir, eliminar, numerar, orden, re-detectar | Implementado |
 | Guardado automático: fila, zoom, posición, color, orientación, filas y recortes (por diagrama) | Implementado (Room) |

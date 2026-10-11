@@ -1,5 +1,10 @@
 package com.tejerfacil.app.ui.reader
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,10 +45,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -78,6 +86,19 @@ fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Uni
     LaunchedEffect(Unit) {
         VolumeKeys.events.collect { d -> if (d > 0) vm.next() else vm.previous() }
     }
+    // Giro de pantalla solo a pedido: la app es vertical salvo que se toque el botón.
+    var landscape by rememberSaveable { mutableStateOf(false) }
+    val activity = LocalContext.current.findActivity()
+    DisposableEffect(landscape) {
+        activity?.requestedOrientation =
+            if (landscape) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        onDispose { }
+    }
+    DisposableEffect(Unit) {
+        // Al salir del lector se vuelve siempre a vertical.
+        onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+    }
+
     val view = LocalView.current
     DisposableEffect(settings.keepScreenOn) {
         view.keepScreenOn = settings.keepScreenOn
@@ -90,6 +111,12 @@ fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Uni
                 title = { Text(diagram?.name ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } },
                 actions = {
+                    IconButton(onClick = { landscape = !landscape }) {
+                        Icon(
+                            Icons.Filled.ScreenRotation,
+                            contentDescription = if (landscape) "Volver a vertical" else "Girar a horizontal",
+                        )
+                    }
                     IconButton(onClick = { command = ViewerCommand(ViewerCommandKind.FIT_WIDTH) }) {
                         Icon(Icons.Filled.FitScreen, contentDescription = "Ajustar al ancho")
                     }
@@ -110,7 +137,7 @@ fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Uni
                     FilledTonalButton(
                         onClick = { vm.previous() },
                         enabled = rows.isNotEmpty() && current > 0,
-                        modifier = Modifier.weight(1f).height(72.dp),
+                        modifier = Modifier.weight(1f).height(if (landscape) 52.dp else 72.dp),
                     ) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, Modifier.size(32.dp))
                         Text("Fila anterior", textAlign = TextAlign.Center)
@@ -128,7 +155,7 @@ fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Uni
                     Button(
                         onClick = { vm.next() },
                         enabled = rows.isNotEmpty() && current < rows.size - 1,
-                        modifier = Modifier.weight(1f).height(72.dp),
+                        modifier = Modifier.weight(1f).height(if (landscape) 52.dp else 72.dp),
                     ) {
                         Text("Fila siguiente", textAlign = TextAlign.Center)
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(32.dp))
@@ -182,3 +209,12 @@ fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Uni
     }
 }
 
+
+private fun Context.findActivity(): Activity? {
+    var c: Context? = this
+    while (c is ContextWrapper) {
+        if (c is Activity) return c
+        c = c.baseContext
+    }
+    return null
+}

@@ -20,6 +20,9 @@ interface PatternDao {
     @Query("SELECT * FROM patterns WHERE id = :id")
     suspend fun get(id: Long): PatternEntity?
 
+    @Query("SELECT * FROM patterns")
+    suspend fun listAll(): List<PatternEntity>
+
     @Query("SELECT * FROM patterns WHERE id = :id")
     fun observe(id: Long): Flow<PatternEntity?>
 

@@ -33,10 +33,14 @@ import com.tejerfacil.app.AppContainer
 @Composable
 fun ImportScreen(container: AppContainer, onDone: (Long?) -> Unit, onBack: () -> Unit) {
     val st by container.importer.state.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(st?.finished, st?.error) {
         val s = st
         if (s != null && s.finished && s.error == null) {
+            if (s.pageCount == 0) {
+                android.widget.Toast.makeText(context, s.stage, android.widget.Toast.LENGTH_LONG).show()
+            }
             val id = s.patternId
             container.importer.dismiss()
             onDone(id)

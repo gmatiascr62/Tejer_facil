@@ -1,6 +1,10 @@
 package com.tejerfacil.app.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.StateFlow
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -26,8 +30,13 @@ object Routes {
 }
 
 @Composable
-fun AppNavHost(container: AppContainer) {
+fun AppNavHost(container: AppContainer, importRequests: StateFlow<Long>) {
     val nav = rememberNavController()
+    // PDF recibido desde otra app: ir a la pantalla de importación.
+    val request by importRequests.collectAsState()
+    LaunchedEffect(request) {
+        if (request != 0L) nav.navigate(Routes.IMPORT) { launchSingleTop = true }
+    }
     NavHost(navController = nav, startDestination = Routes.LIBRARY) {
         composable(Routes.LIBRARY) {
             LibraryScreen(

@@ -19,6 +19,8 @@ data class PatternEntity(
     /** PROCESSING, READY, ERROR */
     val status: String,
     val message: String? = null,
+    /** Si es una copia editable, id del patrón original. */
+    val copyOf: Long? = null,
 )
 
 /**
@@ -62,6 +64,8 @@ data class DiagramEntity(
     val rowMethod: String = "NONE",
     val rowConfidence: Double = 0.0,
     val notes: String = "",
+    /** La imagen tiene símbolos editados por el usuario (no se re-renderiza desde el PDF). */
+    @ColumnInfo(defaultValue = "0") val edited: Boolean = false,
 )
 
 /** Fila del diagrama en coordenadas normalizadas de la imagen del diagrama. */

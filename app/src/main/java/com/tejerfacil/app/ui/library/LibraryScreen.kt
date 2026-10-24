@@ -19,7 +19,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UploadFile
@@ -64,6 +68,7 @@ fun LibraryScreen(
     val importState by container.importer.state.collectAsState()
     val scope = rememberCoroutineScope()
     var toDelete by remember { mutableStateOf<PatternSummary?>(null) }
+    var copying by remember { mutableStateOf(false) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
@@ -90,6 +95,10 @@ fun LibraryScreen(
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
+            if (copying) {
+                LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                Text("Creando la copia…", Modifier.padding(horizontal = 16.dp))
+            }
             importState?.let { st ->
                 Card(Modifier.fillMaxWidth().padding(16.dp).clickable { onImportStarted() }) {
                     Column(Modifier.padding(16.dp)) {
@@ -114,7 +123,18 @@ fun LibraryScreen(
                 }
                 else -> LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 96.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(list, key = { it.pattern.id }) { s ->
-                        PatternCard(s, onClick = { onOpenPattern(s.pattern.id) }, onDelete = { toDelete = s })
+                        PatternCard(
+                            s,
+                            onClick = { onOpenPattern(s.pattern.id) },
+                            onDelete = { toDelete = s },
+                            onCopy = {
+                                scope.launch {
+                                    copying = true
+                                    runCatching { container.repo.duplicatePattern(s.pattern.id) }
+                                    copying = false
+                                }
+                            },
+                        )
                     }
                 }
             }
@@ -135,13 +155,17 @@ fun LibraryScreen(
 }
 
 @Composable
-private fun PatternCard(s: PatternSummary, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun PatternCard(s: PatternSummary, onClick: () -> Unit, onDelete: () -> Unit, onCopy: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
     Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.PictureAsPdf, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(s.pattern.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                if (s.pattern.copyOf != null) {
+                    Text("Copia editable", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
+                }
                 val status = when (s.pattern.status) {
                     "PROCESSING" -> "Procesando…"
                     "ERROR" -> "Error: ${s.pattern.message ?: "desconocido"}"
@@ -150,8 +174,22 @@ private fun PatternCard(s: PatternSummary, onClick: () -> Unit, onDelete: () -> 
                 Text("${s.pattern.pageCount} páginas · $status")
                 Text(DateFormat.getDateInstance().format(Date(s.pattern.importedAt)), style = MaterialTheme.typography.bodySmall)
             }
-            IconButton(onClick = onDelete, modifier = Modifier.size(56.dp)) {
-                Icon(Icons.Filled.Delete, contentDescription = "Eliminar")
+            Box {
+                IconButton(onClick = { menu = true }, modifier = Modifier.size(56.dp)) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Opciones")
+                }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Crear copia para editar") },
+                        leadingIcon = { Icon(Icons.Filled.ContentCopy, null) },
+                        onClick = { menu = false; onCopy() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Eliminar") },
+                        leadingIcon = { Icon(Icons.Filled.Delete, null) },
+                        onClick = { menu = false; onDelete() },
+                    )
+                }
             }
         }
     }

@@ -18,6 +18,7 @@ import com.tejerfacil.app.ui.library.LibraryScreen
 import com.tejerfacil.app.ui.reader.ReaderScreen
 import com.tejerfacil.app.ui.rows.RowEditorScreen
 import com.tejerfacil.app.ui.settings.SettingsScreen
+import com.tejerfacil.app.ui.symbols.SymbolEditorScreen
 
 object Routes {
     const val LIBRARY = "biblioteca"
@@ -27,6 +28,7 @@ object Routes {
     fun reader(diagramId: Long) = "lector/$diagramId"
     fun crop(patternId: Long, page: Int) = "recortes/$patternId/$page"
     fun rows(diagramId: Long) = "filas/$diagramId"
+    fun symbols(diagramId: Long) = "simbolos/$diagramId"
 }
 
 @Composable
@@ -66,6 +68,8 @@ fun AppNavHost(container: AppContainer, importRequests: StateFlow<Long>) {
                 container = container, patternId = id,
                 onOpenDiagram = { nav.navigate(Routes.reader(it)) },
                 onEditCrops = { page -> nav.navigate(Routes.crop(id, page)) },
+                onEditSymbols = { nav.navigate(Routes.symbols(it)) },
+                onOpenPattern = { nav.navigate(Routes.gallery(it)) },
                 onBack = { nav.popBackStack() },
             )
         }
@@ -77,6 +81,7 @@ fun AppNavHost(container: AppContainer, importRequests: StateFlow<Long>) {
             ReaderScreen(
                 container = container, diagramId = id,
                 onEditRows = { nav.navigate(Routes.rows(id)) },
+                onEditSymbols = { did -> nav.navigate(Routes.symbols(did)) },
                 onBack = { nav.popBackStack() },
             )
         }
@@ -93,6 +98,12 @@ fun AppNavHost(container: AppContainer, importRequests: StateFlow<Long>) {
                 initialPage = entry.arguments!!.getInt("page"),
                 onBack = { nav.popBackStack() },
             )
+        }
+        composable(
+            "simbolos/{diagramId}",
+            arguments = listOf(navArgument("diagramId") { type = NavType.LongType }),
+        ) { entry ->
+            SymbolEditorScreen(container, entry.arguments!!.getLong("diagramId"), onBack = { nav.popBackStack() })
         }
         composable(
             "filas/{diagramId}",

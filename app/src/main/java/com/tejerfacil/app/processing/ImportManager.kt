@@ -180,7 +180,7 @@ class ImportManager(
     private suspend fun findDuplicate(file: File): Long? {
         val size = file.length()
         val candidates = db.patterns().listAll().filter { p ->
-            p.status != "ERROR" && p.pdfPath.isNotBlank() && File(p.pdfPath).let { it.exists() && it.length() == size }
+            p.status != "ERROR" && p.copyOf == null && p.pdfPath.isNotBlank() && File(p.pdfPath).let { it.exists() && it.length() == size }
         }
         if (candidates.isEmpty()) return null
         val hash = withContext(Dispatchers.IO) { sha256(file) }
@@ -207,7 +207,19 @@ class ImportManager(
      */
     suspend fun rotateDiagram(diagramId: Long, deltaDegrees: Int) {
         val d = db.diagrams().get(diagramId) ?: return
-        rebuild(d, Rotation.fromDegrees(d.rotation + deltaDegrees))
+        if (d.edited) {
+            // Diagrama con símbolos editados: se gira la imagen editada (no el PDF).
+            withContext(Dispatchers.Default) { processor.rebuildFromImage(d, Rotation.fromDegrees(deltaDegrees)) }
+        } else {
+            rebuild(d, Rotation.fromDegrees(d.rotation + deltaDegrees))
+        }
+    }
+
+    /** Vuelve a reconocer las filas sin cambiar la imagen ni la orientación. */
+    suspend fun redetectRows(diagramId: Long) {
+        val d = db.diagrams().get(diagramId) ?: return
+        if (d.edited) withContext(Dispatchers.Default) { processor.rebuildFromImage(d, Rotation.R0) }
+        else rebuild(d, Rotation.fromDegrees(d.rotation))
     }
 
     /** Re-procesa un diagrama (tras editar el recorte o la orientación). */

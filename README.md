@@ -36,6 +36,8 @@ Cada push al repositorio ejecuta el workflow **Android APK** (`.github/workflows
 | Zoom con dos dedos, desplazamiento, doble toque, ajustar al ancho, restablecer | Implementado |
 | Tocar una fila para seleccionarla; botones grandes "Fila anterior / siguiente" | Implementado |
 | Avanzar/retroceder con volumen +/− (opcional, solo en el lector) | Implementado |
+| Crear una copia editable de un patrón (el original no se modifica) | Implementado |
+| Editor de símbolos en copias: copiar, pegar (reemplaza) y borrar celdas; deshacer/rehacer; paleta de símbolos guardados | Implementado |
 | Girar un diagrama 90° (menú ⋮ del lector o mantener apretado en la galería); se vuelven a reconocer las filas | Implementado |
 | Botón para girar la pantalla en el lector (solo gira si se toca; al salir vuelve a vertical) | Implementado |
 | Abrir un PDF desde el administrador de archivos ("Abrir con…") o "Compartir" | Implementado (si ya estaba importado, abre el existente) |
@@ -90,6 +92,12 @@ triangulares/escalonados y filas de alturas distintas. La app tiene pruebas de p
 progreso (Robolectric + Room) y del posicionamiento del resaltado con zoom (`ViewportMathTest`).
 
 ## Limitaciones conocidas (requieren corrección manual)
+
+- **Editor de símbolos**: trabaja sobre la imagen del diagrama (no reescribe el PDF). Las celdas se
+  ubican con las líneas de la cuadrícula; si una celda no tiene líneas visibles se usa una celda
+  aproximada. El borrado deja la celda en blanco (no recupera fondos de color). Deshacer/rehacer
+  vale mientras el editor está abierto. Si después se cambia el recorte de ese diagrama en el
+  editor de recortes, se vuelve a generar desde el PDF y las ediciones se pierden (la app avisa).
 
 - **Filas de más o de menos en casos puntuales**: tiras de números de columna dibujadas *dentro*
   de la cuadrícula (p. ej. a mitad del gráfico) pueden contarse como una fila (Jasmine trasera

@@ -61,17 +61,23 @@ fun ChartViewer(
     onViewChanged: (SavedView) -> Unit,
     onRowTap: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    /** Si se indica, un toque informa el punto (normalizado) de la imagen en vez de elegir fila. */
+    onImageTap: ((Double, Double) -> Unit)? = null,
+    /** Rectángulos (normalizados) a marcar sobre la imagen, con su color. */
+    marks: List<Pair<NormRect, Color>> = emptyList(),
 ) {
     val imgW = image.width
     val imgH = image.height
     var viewSize by remember { mutableStateOf(IntSize.Zero) }
-    var vp by remember(image) { mutableStateOf<Viewport?>(null) }
+    // Clave por tamaño: si solo cambian los píxeles (edición) se conserva el zoom.
+    var vp by remember(imgW, imgH) { mutableStateOf<Viewport?>(null) }
     val scope = rememberCoroutineScope()
     var anim by remember { mutableStateOf<Job?>(null) }
     val currentRows by rememberUpdatedState(rows)
     val currentActive by rememberUpdatedState(activeIndex)
     val viewChanged by rememberUpdatedState(onViewChanged)
     val rowTap by rememberUpdatedState(onRowTap)
+    val imageTap by rememberUpdatedState(onImageTap)
 
     fun vw() = viewSize.width.toFloat()
     fun vh() = viewSize.height.toFloat()
@@ -106,7 +112,7 @@ fun ChartViewer(
     }
 
     // Estado inicial: zoom y posición guardados, con la fila activa centrada.
-    LaunchedEffect(viewSize, image) {
+    LaunchedEffect(viewSize, imgW, imgH) {
         if (viewSize == IntSize.Zero || vp != null) return@LaunchedEffect
         val fit = ViewportMath.fitWidthScale(imgW, vw())
         val minS = ViewportMath.minScale(imgW, imgH, vw(), vh())
@@ -154,7 +160,7 @@ fun ChartViewer(
             .fillMaxSize()
             .clipToBounds()
             .onSizeChanged { viewSize = it }
-            .pointerInput(image) {
+            .pointerInput(imgW, imgH) {
                 detectTransformGestures { centroid, pan, zoom, _ ->
                     val v = vp
                     if (v != null) {
@@ -169,7 +175,7 @@ fun ChartViewer(
                     }
                 }
             }
-            .pointerInput(image) {
+            .pointerInput(imgW, imgH) {
                 detectTapGestures(
                     onDoubleTap = { p ->
                         vp?.let { v ->
@@ -183,7 +189,13 @@ fun ChartViewer(
                     },
                     onTap = { p ->
                         vp?.let { v ->
-                            ViewportMath.hitTestRow(p.x, p.y, currentRows, imgW, imgH, v)?.let { rowTap(it) }
+                            val tapImage = imageTap
+                            if (tapImage != null) {
+                                val (nx, ny) = ViewportMath.screenToImageNorm(p.x, p.y, imgW, imgH, v)
+                                if (nx in 0.0..1.0 && ny in 0.0..1.0) tapImage(nx, ny)
+                            } else {
+                                ViewportMath.hitTestRow(p.x, p.y, currentRows, imgW, imgH, v)?.let { rowTap(it) }
+                            }
                         }
                     },
                 )
@@ -213,6 +225,12 @@ fun ChartViewer(
                         style = Stroke(width = 1.5f * px),
                     )
                 }
+            }
+            for ((m, color) in marks) {
+                val tl = Offset((m.left * imgW).toFloat(), (m.top * imgH).toFloat())
+                val sz = Size((m.width * imgW).toFloat(), (m.height * imgH).toFloat())
+                drawRect(color.copy(alpha = 0.18f), tl, sz)
+                drawRect(color, tl, sz, style = Stroke(width = 3f * px))
             }
             rows.getOrNull(activeIndex)?.let { r ->
                 val top = (r.top * imgH).toFloat()

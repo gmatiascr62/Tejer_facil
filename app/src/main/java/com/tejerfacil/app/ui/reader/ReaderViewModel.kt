@@ -14,8 +14,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ReaderViewModel(private val c: AppContainer, val diagramId: Long) : ViewModel() {
 
     val diagram: StateFlow<DiagramEntity?> =
@@ -55,6 +59,29 @@ class ReaderViewModel(private val c: AppContainer, val diagramId: Long) : ViewMo
         saveJob = viewModelScope.launch {
             delay(700)
             _progress.value?.let { c.repo.saveProgress(it) }
+        }
+    }
+
+    /** ¿El diagrama pertenece a una copia editable del patrón? */
+    val isCopy: StateFlow<Boolean> = diagram
+        .flatMapLatest { d -> if (d == null) flowOf(null) else c.db.patterns().observe(d.patternId) }
+        .map { it?.copyOf != null }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Crea una copia del patrón y devuelve el diagrama equivalente de la copia. */
+    fun copyPatternForEditing(onDone: (Long) -> Unit) {
+        val d = diagram.value ?: return
+        viewModelScope.launch {
+            _busy.value = "Creando la copia del patrón…"
+            try {
+                val newPattern = c.repo.duplicatePattern(d.patternId)
+                val target = c.db.diagrams().listForPattern(newPattern)
+                    .firstOrNull { it.pageIndex == d.pageIndex && it.indexInPage == d.indexInPage }
+                _busy.value = null
+                target?.let { onDone(it.id) }
+            } catch (t: Throwable) {
+                _busy.value = "Error: ${t.message ?: t.javaClass.simpleName}"
+            }
         }
     }
 

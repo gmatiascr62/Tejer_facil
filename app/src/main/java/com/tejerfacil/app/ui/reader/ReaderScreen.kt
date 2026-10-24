@@ -24,7 +24,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.automirrored.filled.RotateRight
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -71,7 +73,13 @@ import com.tejerfacil.core.geometry.NormRect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Unit, onBack: () -> Unit) {
+fun ReaderScreen(
+    container: AppContainer,
+    diagramId: Long,
+    onEditRows: () -> Unit,
+    onEditSymbols: (Long) -> Unit,
+    onBack: () -> Unit,
+) {
     val vm: ReaderViewModel = viewModel(key = "lector_$diagramId") { ReaderViewModel(container, diagramId) }
     val diagram by vm.diagram.collectAsState()
     val rowEntities by vm.rows.collectAsState()
@@ -81,6 +89,7 @@ fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Uni
     var command by remember { mutableStateOf<ViewerCommand?>(null) }
     var showColors by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
+    var askCopy by remember { mutableStateOf(false) }
     val busy by vm.busy.collectAsState()
 
     val rows = remember(rowEntities) { rowEntities.map { NormRect(it.left, it.top, it.right, it.bottom) } }
@@ -144,6 +153,14 @@ fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Uni
                                 text = { Text("Girar diagrama 90° ↺") },
                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.RotateLeft, null) },
                                 onClick = { menu = false; vm.rotateDiagram(-90) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Editar símbolos") },
+                                leadingIcon = { Icon(Icons.Filled.Brush, null) },
+                                onClick = {
+                                    menu = false
+                                    if (vm.isCopy.value) onEditSymbols(diagramId) else askCopy = true
+                                },
                             )
                             DropdownMenuItem(
                                 text = { Text("Editar filas") },
@@ -235,6 +252,21 @@ fun ReaderScreen(container: AppContainer, diagramId: Long, onEditRows: () -> Uni
                 }
             }
         }
+    }
+
+    if (askCopy) {
+        AlertDialog(
+            onDismissRequest = { askCopy = false },
+            title = { Text("Editar símbolos") },
+            text = { Text("Para no modificar el original, los símbolos se editan en una copia del patrón. ¿Crear la copia y editar este diagrama?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    askCopy = false
+                    vm.copyPatternForEditing { copyDiagramId -> onEditSymbols(copyDiagramId) }
+                }) { Text("Crear copia") }
+            },
+            dismissButton = { TextButton(onClick = { askCopy = false }) { Text("Cancelar") } },
+        )
     }
 
     if (showColors) {

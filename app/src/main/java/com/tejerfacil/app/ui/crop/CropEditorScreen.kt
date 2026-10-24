@@ -86,6 +86,7 @@ fun CropEditorScreen(container: AppContainer, patternId: Long, initialPage: Int,
     val busy by vm.busy.collectAsState()
     val multi by vm.multiSelect.collectAsState()
     var confirmExit by remember { mutableStateOf(false) }
+    var confirmEdited by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -95,7 +96,9 @@ fun CropEditorScreen(container: AppContainer, patternId: Long, initialPage: Int,
                     IconButton(onClick = { if (dirty) confirmExit = true else onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") }
                 },
                 actions = {
-                    IconButton(onClick = { vm.save {} }, enabled = dirty && busy == null) { Icon(Icons.Filled.Save, "Guardar") }
+                    IconButton(onClick = {
+                        if (vm.editedAffected() > 0) confirmEdited = true else vm.save {}
+                    }, enabled = dirty && busy == null) { Icon(Icons.Filled.Save, "Guardar") }
                 },
             )
         },
@@ -154,6 +157,16 @@ fun CropEditorScreen(container: AppContainer, patternId: Long, initialPage: Int,
                 }
             }
         }
+    }
+
+    if (confirmEdited) {
+        AlertDialog(
+            onDismissRequest = { confirmEdited = false },
+            title = { Text("Se perderán ediciones") },
+            text = { Text("Cambiaste el recorte de ${vm.editedAffected()} diagrama(s) con símbolos editados. Se volverán a generar desde el PDF y se perderán esas ediciones. ¿Continuar?") },
+            confirmButton = { TextButton(onClick = { confirmEdited = false; vm.save {} }) { Text("Continuar") } },
+            dismissButton = { TextButton(onClick = { confirmEdited = false }) { Text("Cancelar") } },
+        )
     }
 
     if (confirmExit) {

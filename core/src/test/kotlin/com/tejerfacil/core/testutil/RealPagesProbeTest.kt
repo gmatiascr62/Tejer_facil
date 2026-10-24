@@ -49,6 +49,17 @@ class RealPagesProbeTest {
                 println("      filas=${r.rows.size} numeradas=$labeled orden=${r.readingOrder} método=${r.method} conf=${"%.2f".format(r.confidence)} (${t3 - t2} ms) etiquetas=${out.labels.size}")
                 println("      alturas=${r.rows.map { it.height.toInt() }} celda=${"%.1f".format(r.cellWidth)}x${"%.1f".format(r.cellHeight)}")
                 println("      primeras=${r.rows.take(6).map { it.label }} últimas=${r.rows.takeLast(4).map { it.label }}")
+                if (System.getProperty("cellProbe") == "1") {
+                    val grid = com.tejerfacil.core.rows.CellGrid.build(out.image, r.rows)
+                    println("      celdas por fila (primeras 5): " + r.rows.take(5).map { row ->
+                        grid.rows.firstOrNull { kotlin.math.abs(it.top - row.top) < 1 }?.xs?.size?.minus(1) })
+                    TestSupport.debugDir?.let { dir ->
+                        val m = out.image.clone()
+                        for (gr in grid.rows) for (x in gr.xs) org.opencv.imgproc.Imgproc.line(m, org.opencv.core.Point(x, gr.top), org.opencv.core.Point(x, gr.bottom), org.opencv.core.Scalar(0.0, 0.0, 255.0), 2)
+                        org.opencv.imgcodecs.Imgcodecs.imwrite(File(dir, "${f.nameWithoutExtension}_d${i}_cells.png").absolutePath, m)
+                        m.release()
+                    }
+                }
                 TestSupport.saveRows("${f.nameWithoutExtension}_d$i", out.image, r.rows)
                 crop.release(); out.image.release()
             }

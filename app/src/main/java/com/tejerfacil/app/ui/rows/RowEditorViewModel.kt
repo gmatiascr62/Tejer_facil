@@ -6,7 +6,6 @@ import com.tejerfacil.app.AppContainer
 import com.tejerfacil.app.data.db.DiagramEntity
 import com.tejerfacil.app.data.db.RowEntity
 import com.tejerfacil.core.geometry.NormRect
-import com.tejerfacil.core.geometry.Rotation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -167,7 +166,7 @@ class RowEditorViewModel(private val c: AppContainer, val diagramId: Long) : Vie
         viewModelScope.launch {
             _busy.value = "Reconociendo filas…"
             try {
-                c.importer.rebuild(d, Rotation.fromDegrees(d.rotation))
+                c.importer.redetectRows(d.id)
                 reload()
                 _busy.value = null
             } catch (t: Throwable) {

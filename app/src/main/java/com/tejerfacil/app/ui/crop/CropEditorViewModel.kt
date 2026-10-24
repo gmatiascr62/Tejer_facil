@@ -174,6 +174,12 @@ class CropEditorViewModel(private val c: AppContainer, private val patternId: Lo
         _dirty.value = true
     }
 
+    /** Cantidad de diagramas con símbolos editados que se volverán a generar desde el PDF. */
+    fun editedAffected(): Int = _crops.value.count { cr ->
+        val o = cr.diagramId?.let { originals[it] }
+        o != null && o.edited && (cr.rectChanged || cr.rotationChanged)
+    }
+
     fun discard() {
         _dirty.value = false
         loadPage(_page.value)

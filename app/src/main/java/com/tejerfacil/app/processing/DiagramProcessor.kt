@@ -87,6 +87,35 @@ class DiagramProcessor(private val db: AppDatabase, private val files: FileStore
             mat.release()
         }
 
+        // Se re-renderiza desde el PDF: las ediciones de símbolos (si había) se descartan.
+        return saveResult(entity.copy(edited = false), result, result.orientation.rotation.degrees, forced != null)
+    }
+
+    /**
+     * Re-procesa un diagrama a partir de su imagen actual (por ejemplo con
+     * símbolos editados), girándola [delta] y reconociendo de nuevo las filas.
+     */
+    suspend fun rebuildFromImage(entity: DiagramEntity, delta: Rotation): DiagramEntity {
+        val bmp = android.graphics.BitmapFactory.decodeFile(entity.imagePath) ?: error("No se pudo leer la imagen del diagrama")
+        val src = bmp.toMat()
+        bmp.recycle()
+        val rotated = com.tejerfacil.core.vision.ImageOps.rotate(src, delta)
+        src.release()
+        val result = try {
+            DiagramPipeline().process(rotated, 0.0, 0.0, null, Rotation.R0, null)
+        } finally {
+            rotated.release()
+        }
+        val newRotation = (entity.rotation + delta.degrees) % 360
+        return saveResult(entity, result, newRotation, true)
+    }
+
+    private suspend fun saveResult(
+        entity: DiagramEntity,
+        result: DiagramPipeline.Result,
+        rotationDegrees: Int,
+        locked: Boolean,
+    ): DiagramEntity {
         val out = result.image.toBitmap()
         result.image.release()
         val w = out.width; val h = out.height
@@ -111,10 +140,10 @@ class DiagramProcessor(private val db: AppDatabase, private val files: FileStore
         }
         db.rows().replace(entity.id, rows)
         val updated = entity.copy(
-            rotation = result.orientation.rotation.degrees,
+            rotation = rotationDegrees,
             rotationSource = result.orientation.source.name,
             rotationConfidence = result.orientation.confidence,
-            rotationLocked = forced != null,
+            rotationLocked = locked,
             imagePath = imgFile.absolutePath,
             thumbPath = thumbFile.absolutePath,
             imageWidth = w,

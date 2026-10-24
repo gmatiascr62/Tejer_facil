@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -66,6 +67,8 @@ fun GalleryScreen(
     patternId: Long,
     onOpenDiagram: (Long) -> Unit,
     onEditCrops: (Int) -> Unit,
+    onEditSymbols: (Long) -> Unit,
+    onOpenPattern: (Long) -> Unit,
     onBack: () -> Unit,
 ) {
     val pattern by container.repo.observePattern(patternId).collectAsState(initial = null)
@@ -75,6 +78,26 @@ fun GalleryScreen(
     var renaming by remember { mutableStateOf<DiagramListItem?>(null) }
     var deleting by remember { mutableStateOf<DiagramListItem?>(null) }
     var busy by remember { mutableStateOf<String?>(null) }
+
+    val isCopy = pattern?.copyOf != null
+
+    /** Crea una copia del patrón; si [diagram] no es null, abre su editor de símbolos en la copia. */
+    fun makeCopy(diagram: com.tejerfacil.app.data.db.DiagramEntity?) {
+        if (busy != null) return
+        busy = "Creando la copia del patrón…"
+        scope.launch {
+            try {
+                val newId = container.repo.duplicatePattern(patternId)
+                busy = null
+                if (diagram == null) onOpenPattern(newId)
+                else container.db.diagrams().listForPattern(newId)
+                    .firstOrNull { it.pageIndex == diagram.pageIndex && it.indexInPage == diagram.indexInPage }
+                    ?.let { onEditSymbols(it.id) }
+            } catch (t: Throwable) {
+                busy = "Error: ${t.message ?: t.javaClass.simpleName}"
+            }
+        }
+    }
 
     fun rotate(id: Long, delta: Int) {
         if (busy != null) return
@@ -95,6 +118,9 @@ fun GalleryScreen(
                 title = { Text(pattern?.name ?: "Diagramas", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } },
                 actions = {
+                    IconButton(onClick = { makeCopy(null) }) {
+                        Icon(Icons.Filled.ContentCopy, contentDescription = "Crear copia editable")
+                    }
                     IconButton(onClick = { onEditCrops(items?.firstOrNull()?.diagram?.pageIndex ?: 0) }) {
                         Icon(Icons.Filled.Crop, contentDescription = "Editar recortes")
                     }
@@ -131,6 +157,10 @@ fun GalleryScreen(
                         DiagramCard(item, onClick = { onOpenDiagram(item.diagram.id) }, onLongClick = { menuFor = item })
                         DropdownMenu(expanded = menuFor?.diagram?.id == item.diagram.id, onDismissRequest = { menuFor = null }) {
                             DropdownMenuItem(text = { Text("Abrir") }, onClick = { menuFor = null; onOpenDiagram(item.diagram.id) })
+                            DropdownMenuItem(
+                                text = { Text(if (isCopy) "Editar símbolos" else "Editar símbolos (en una copia)") },
+                                onClick = { menuFor = null; if (isCopy) onEditSymbols(item.diagram.id) else makeCopy(item.diagram) },
+                            )
                             DropdownMenuItem(text = { Text("Girar 90° ↻") }, onClick = { menuFor = null; rotate(item.diagram.id, 90) })
                             DropdownMenuItem(text = { Text("Girar 90° ↺") }, onClick = { menuFor = null; rotate(item.diagram.id, -90) })
                             DropdownMenuItem(text = { Text("Cambiar nombre") }, onClick = { renaming = item; menuFor = null })
@@ -146,7 +176,7 @@ fun GalleryScreen(
     busy?.let { msg ->
         AlertDialog(
             onDismissRequest = { if (msg.startsWith("Error")) busy = null },
-            title = { Text("Girar diagrama") },
+            title = { Text(if (msg.startsWith("Creando")) "Copia del patrón" else "Diagrama") },
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (!msg.startsWith("Error")) CircularProgressIndicator(Modifier.padding(end = 16.dp))

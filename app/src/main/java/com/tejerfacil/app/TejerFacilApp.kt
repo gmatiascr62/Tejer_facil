@@ -19,6 +19,7 @@ class AppContainer(app: Application) {
     val files = FileStore(app)
     val settings = SettingsRepository(app)
     val repo = PatternRepository(db, files, settings)
+    val palette = com.tejerfacil.app.data.SymbolPalette(app)
     val processor = DiagramProcessor(db, files)
     val importer = ImportManager(app, db, files, repo, processor, scope)
 }

@@ -4,6 +4,11 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.fillMaxSize
@@ -65,7 +70,13 @@ fun ChartViewer(
     onImageTap: ((Double, Double) -> Unit)? = null,
     /** Rectángulos (normalizados) a marcar sobre la imagen, con su color. */
     marks: List<Pair<NormRect, Color>> = emptyList(),
+    /** Si se indica, arrastrar con un dedo informa puntos (normalizados) en vez de desplazar. */
+    onImageDrag: ((Double, Double) -> Unit)? = null,
+    onImageDragEnd: (() -> Unit)? = null,
 ) {
+    val dragMode = onImageDrag != null
+    val imageDrag by rememberUpdatedState(onImageDrag)
+    val imageDragEnd by rememberUpdatedState(onImageDragEnd)
     val imgW = image.width
     val imgH = image.height
     var viewSize by remember { mutableStateOf(IntSize.Zero) }
@@ -160,18 +171,56 @@ fun ChartViewer(
             .fillMaxSize()
             .clipToBounds()
             .onSizeChanged { viewSize = it }
-            .pointerInput(imgW, imgH) {
-                detectTransformGestures { centroid, pan, zoom, _ ->
-                    val v = vp
-                    if (v != null) {
-                        anim?.cancel()
-                        val w = size.width.toFloat(); val h = size.height.toFloat()
-                        val minS = ViewportMath.minScale(imgW, imgH, w, h)
-                        var n = ViewportMath.zoomAround(v, zoom, centroid.x, centroid.y, minS)
-                        n = n.copy(offsetX = n.offsetX + pan.x, offsetY = n.offsetY + pan.y)
-                        n = ViewportMath.clamp(n, imgW, imgH, w, h)
-                        vp = n
-                        report(n)
+            .pointerInput(imgW, imgH, dragMode) {
+                fun transform(centroid: Offset, pan: Offset, zoom: Float) {
+                    val v = vp ?: return
+                    anim?.cancel()
+                    val w = size.width.toFloat(); val h = size.height.toFloat()
+                    val minS = ViewportMath.minScale(imgW, imgH, w, h)
+                    var n = ViewportMath.zoomAround(v, zoom, centroid.x, centroid.y, minS)
+                    n = n.copy(offsetX = n.offsetX + pan.x, offsetY = n.offsetY + pan.y)
+                    n = ViewportMath.clamp(n, imgW, imgH, w, h)
+                    vp = n
+                    report(n)
+                }
+                fun drag(p: Offset) {
+                    val v = vp ?: return
+                    val (nx, ny) = ViewportMath.screenToImageNorm(p.x, p.y, imgW, imgH, v)
+                    imageDrag?.invoke(nx, ny)
+                }
+                if (!dragMode) {
+                    detectTransformGestures { centroid, pan, zoom, _ -> transform(centroid, pan, zoom) }
+                } else {
+                    // Modo selección: un dedo "pinta" celdas; dos dedos hacen zoom y mueven.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val slop = viewConfiguration.touchSlop
+                        var moved = Offset.Zero
+                        var dragging = false
+                        var multi = false
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val pressed = event.changes.filter { it.pressed }
+                            if (pressed.isEmpty()) break
+                            if (pressed.size >= 2) {
+                                multi = true
+                                transform(event.calculateCentroid(), event.calculatePan(), event.calculateZoom())
+                                event.changes.forEach { it.consume() }
+                                continue
+                            }
+                            if (multi) continue
+                            val ch = pressed.first()
+                            moved += ch.position - ch.previousPosition
+                            if (!dragging && moved.getDistance() > slop) {
+                                dragging = true
+                                drag(down.position)
+                            }
+                            if (dragging) {
+                                drag(ch.position)
+                                ch.consume()
+                            }
+                        }
+                        if (dragging) imageDragEnd?.invoke()
                     }
                 }
             }

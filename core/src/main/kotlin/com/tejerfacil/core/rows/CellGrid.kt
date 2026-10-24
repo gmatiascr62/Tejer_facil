@@ -19,22 +19,49 @@ class CellGrid(val rows: List<RowCells>, private val fallbackCell: Double) {
 
     data class RowCells(val top: Double, val bottom: Double, val xs: List<Double>)
 
+    /** Celda ubicada: índice de fila (de arriba hacia abajo), índice de columna dentro de la fila y caja. */
+    data class CellRef(val row: Int, val col: Int, val box: IntBox) {
+        val key: Long get() = row.toLong() * 100_000L + col
+    }
+
+    /** Ancho típico de una celda (píxeles). */
+    val cellWidth: Double get() = fallbackCell
+
     /** Celda (en píxeles de la imagen) que contiene el punto, o null si está fuera del diagrama. */
-    fun cellAt(x: Double, y: Double): IntBox? {
-        val row = rows.firstOrNull { y >= it.top && y < it.bottom } ?: return null
+    fun cellAt(x: Double, y: Double): IntBox? = locate(x, y)?.box
+
+    fun locate(x: Double, y: Double): CellRef? {
+        val ri = rows.indexOfFirst { y >= it.top && y < it.bottom }
+        if (ri < 0) return null
+        val row = rows[ri]
         val xs = row.xs
         for (i in 0 until xs.size - 1) {
             if (x >= xs[i] && x < xs[i + 1]) {
-                return IntBox(xs[i].roundToInt(), row.top.roundToInt(), xs[i + 1].roundToInt(), row.bottom.roundToInt())
+                return CellRef(ri, i, IntBox(xs[i].roundToInt(), row.top.roundToInt(), xs[i + 1].roundToInt(), row.bottom.roundToInt()))
             }
         }
         // Sin líneas verticales detectadas: celda aproximada centrada en el toque.
         if (xs.size < 2) {
             val h = row.bottom - row.top
             val w = if (fallbackCell > 0) fallbackCell else h
-            return IntBox((x - w / 2).roundToInt(), row.top.roundToInt(), (x + w / 2).roundToInt(), row.bottom.roundToInt())
+            val col = (x / w).toInt()
+            val left = col * w
+            return CellRef(ri, col, IntBox(left.roundToInt(), row.top.roundToInt(), (left + w).roundToInt(), row.bottom.roundToInt()))
         }
         return null
+    }
+
+    /**
+     * Celda destino para pegar un bloque: a [dRow] filas y [dxCells] anchos de
+     * celda del ancla. Se ubica por posición, así funciona también en gráficos
+     * con forma (filas que empiezan en distintas columnas).
+     */
+    fun offset(anchor: CellRef, dRow: Int, dxCells: Double): CellRef? {
+        val r = anchor.row + dRow
+        if (r !in rows.indices) return null
+        val x = anchor.box.centerX + dxCells * cellWidth
+        val y = (rows[r].top + rows[r].bottom) / 2
+        return locate(x, y)
     }
 
     companion object {

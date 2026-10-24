@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -64,6 +65,9 @@ fun SymbolEditorScreen(container: AppContainer, diagramId: Long, onBack: () -> U
     val image by vm.image.collectAsState()
     val tool by vm.tool.collectAsState()
     val clipboard by vm.clipboard.collectAsState()
+    val clipPreview by vm.clipPreview.collectAsState()
+    val selectionMarks by vm.selectionMarks.collectAsState()
+    val selectionCount by vm.selectionCount.collectAsState()
     val mark by vm.mark.collectAsState()
     val canUndo by vm.canUndo.collectAsState()
     val canRedo by vm.canRedo.collectAsState()
@@ -74,6 +78,7 @@ fun SymbolEditorScreen(container: AppContainer, diagramId: Long, onBack: () -> U
     var confirmExit by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<File?>(null) }
     val markColor = Color(0xFFD81B60)
+    val selColor = Color(0xFF1E88E5)
 
     Scaffold(
         topBar = {
@@ -93,31 +98,42 @@ fun SymbolEditorScreen(container: AppContainer, diagramId: Long, onBack: () -> U
             Surface(tonalElevation = 3.dp) {
                 Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        val tools = listOf(SymbolTool.COPY to "Copiar", SymbolTool.PASTE to "Pegar", SymbolTool.ERASE to "Borrar")
+                        val tools = listOf(
+                            SymbolTool.SELECT to "Seleccionar", SymbolTool.COPY to "Copiar",
+                            SymbolTool.PASTE to "Pegar", SymbolTool.ERASE to "Borrar",
+                        )
                         tools.forEachIndexed { i, (t, label) ->
                             SegmentedButton(
                                 selected = tool == t,
                                 onClick = { vm.setTool(t) },
                                 shape = SegmentedButtonDefaults.itemShape(i, tools.size),
-                            ) { Text(label) }
+                            ) { Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1) }
                         }
                     }
                     Text(message, style = MaterialTheme.typography.bodyMedium)
+                    if (tool == SymbolTool.SELECT) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = vm::copySelection, enabled = selectionCount > 0) { Text("Copiar selección") }
+                            OutlinedButton(onClick = vm::eraseSelection, enabled = selectionCount > 0) { Text("Borrar") }
+                            TextButton(onClick = vm::clearSelection, enabled = selectionCount > 0) { Text("Limpiar") }
+                        }
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Box(
                             Modifier.size(56.dp).background(Color.White).border(2.dp, if (tool == SymbolTool.PASTE) markColor else Color.Gray),
                             contentAlignment = Alignment.Center,
                         ) {
-                            val clip = clipboard
+                            val clip = clipPreview
                             if (clip != null) {
                                 Image(remember(clip) { clip.asImageBitmap() }, "Símbolo copiado", Modifier.fillMaxSize().padding(4.dp), contentScale = ContentScale.Fit)
                             } else {
                                 Text("—", color = Color.Gray)
                             }
                         }
-                        Column(Modifier.width(120.dp)) {
-                            Text("Símbolo copiado", style = MaterialTheme.typography.labelMedium)
-                            OutlinedButton(onClick = vm::saveClipboardToPalette, enabled = clipboard != null) { Text("A la paleta") }
+                        Column(Modifier.width(170.dp)) {
+                            val n = clipboard?.size ?: 0
+                            Text(if (n > 1) "Bloque copiado ($n celdas)" else "Símbolo copiado", style = MaterialTheme.typography.labelMedium)
+                            OutlinedButton(onClick = vm::saveClipboardToPalette, enabled = n == 1) { Text("A la paleta") }
                         }
                         Spacer(Modifier.width(4.dp))
                     }
@@ -149,7 +165,9 @@ fun SymbolEditorScreen(container: AppContainer, diagramId: Long, onBack: () -> U
                     onViewChanged = {},
                     onRowTap = {},
                     onImageTap = vm::tap,
-                    marks = listOfNotNull(mark?.let { it to markColor }),
+                    marks = selectionMarks.map { it to selColor } + listOfNotNull(mark?.let { it to markColor }),
+                    onImageDrag = if (tool == SymbolTool.SELECT) vm::dragSelect else null,
+                    onImageDragEnd = vm::dragEnd,
                 )
             }
             busy?.let { msg ->

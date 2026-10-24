@@ -38,6 +38,7 @@ Cada push al repositorio ejecuta el workflow **Android APK** (`.github/workflows
 | Avanzar/retroceder con volumen +/− (opcional, solo en el lector) | Implementado |
 | Crear una copia editable de un patrón (el original no se modifica) | Implementado |
 | Editor de símbolos en copias: copiar, pegar (reemplaza) y borrar celdas; deshacer/rehacer; paleta de símbolos guardados | Implementado |
+| Selección de varias celdas arrastrando el dedo; borrar la selección o copiarla como bloque y pegarla en otro lugar | Implementado |
 | Girar un diagrama 90° (menú ⋮ del lector o mantener apretado en la galería); se vuelven a reconocer las filas | Implementado |
 | Botón para girar la pantalla en el lector (solo gira si se toca; al salir vuelve a vertical) | Implementado |
 | Abrir un PDF desde el administrador de archivos ("Abrir con…") o "Compartir" | Implementado (si ya estaba importado, abre el existente) |

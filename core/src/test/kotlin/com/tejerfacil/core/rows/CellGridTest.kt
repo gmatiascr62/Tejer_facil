@@ -51,6 +51,14 @@ class CellGridTest {
         assertNull(grid.cellAt(bottom.left + 0.5 * cellPx, top.centerY))
         assertNotNull(grid.cellAt((top.left + top.right) / 2, top.centerY))
 
+        // Desplazamiento de bloque: 2 filas arriba y 3 celdas a la derecha del ancla.
+        val anchor = grid.locate(bottom.left + 4.5 * cellPx, cy)!!
+        val moved = grid.offset(anchor, -2, 3.0)!!
+        assertEquals(anchor.row - 2, moved.row)
+        assertTrue(abs(moved.box.centerX - (anchor.box.centerX + 3 * cellPx)) < 3)
+        // Fuera del diagrama -> null.
+        assertNull(grid.offset(anchor, 50, 0.0))
+
         // El interior deja intactas las líneas.
         val inner = CellGrid.interior(cellsFound[0])
         assertTrue(inner.left > cellsFound[0].left && inner.right < cellsFound[0].right)

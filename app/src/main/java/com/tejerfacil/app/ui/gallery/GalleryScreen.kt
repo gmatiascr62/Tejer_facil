@@ -67,7 +67,7 @@ fun GalleryScreen(
     patternId: Long,
     onOpenDiagram: (Long) -> Unit,
     onEditCrops: (Int) -> Unit,
-    onEditSymbols: (Long) -> Unit,
+    onEditSymbols: (Long, Boolean) -> Unit,
     onOpenPattern: (Long) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -82,7 +82,7 @@ fun GalleryScreen(
     val isCopy = pattern?.copyOf != null
 
     /** Crea una copia del patrón; si [diagram] no es null, abre su editor de símbolos en la copia. */
-    fun makeCopy(diagram: com.tejerfacil.app.data.db.DiagramEntity?) {
+    fun makeCopy(diagram: com.tejerfacil.app.data.db.DiagramEntity?, columns: Boolean = false) {
         if (busy != null) return
         busy = "Creando la copia del patrón…"
         scope.launch {
@@ -92,7 +92,7 @@ fun GalleryScreen(
                 if (diagram == null) onOpenPattern(newId)
                 else container.db.diagrams().listForPattern(newId)
                     .firstOrNull { it.pageIndex == diagram.pageIndex && it.indexInPage == diagram.indexInPage }
-                    ?.let { onEditSymbols(it.id) }
+                    ?.let { onEditSymbols(it.id, columns) }
             } catch (t: Throwable) {
                 busy = "Error: ${t.message ?: t.javaClass.simpleName}"
             }
@@ -159,7 +159,11 @@ fun GalleryScreen(
                             DropdownMenuItem(text = { Text("Abrir") }, onClick = { menuFor = null; onOpenDiagram(item.diagram.id) })
                             DropdownMenuItem(
                                 text = { Text(if (isCopy) "Editar símbolos" else "Editar símbolos (en una copia)") },
-                                onClick = { menuFor = null; if (isCopy) onEditSymbols(item.diagram.id) else makeCopy(item.diagram) },
+                                onClick = { menuFor = null; if (isCopy) onEditSymbols(item.diagram.id, false) else makeCopy(item.diagram) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (isCopy) "Editar columnas" else "Editar columnas (en una copia)") },
+                                onClick = { menuFor = null; if (isCopy) onEditSymbols(item.diagram.id, true) else makeCopy(item.diagram, columns = true) },
                             )
                             DropdownMenuItem(text = { Text("Girar 90° ↻") }, onClick = { menuFor = null; rotate(item.diagram.id, 90) })
                             DropdownMenuItem(text = { Text("Girar 90° ↺") }, onClick = { menuFor = null; rotate(item.diagram.id, -90) })

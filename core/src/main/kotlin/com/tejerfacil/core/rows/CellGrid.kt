@@ -6,6 +6,7 @@ import com.tejerfacil.core.vision.Vision
 import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.Mat
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -64,7 +65,73 @@ class CellGrid(val rows: List<RowCells>, private val fallbackCell: Double) {
         return locate(x, y)
     }
 
+    /**
+     * Filas que contienen la columna [xl, xr] (una celda con esos bordes, con
+     * tolerancia de un tercio de celda).
+     */
+    fun rowsWithColumn(xl: Double, xr: Double): Set<Int> {
+        val tol = cellWidth * 0.34
+        return rows.indices.filter { i ->
+            val xs = rows[i].xs
+            (0 until xs.size - 1).any { k -> abs(xs[k] - xl) <= tol && abs(xs[k + 1] - xr) <= tol }
+        }.toSet()
+    }
+
+    /**
+     * Grilla tras insertar una columna de ancho [width] en la línea x = [at].
+     * Las filas en [withColumn] ganan una celda; las demás quedan igual si
+     * están a la izquierda o se desplazan enteras si están a la derecha.
+     */
+    fun insertColumn(at: Double, width: Double, withColumn: Set<Int>): CellGrid = CellGrid(
+        rows.mapIndexed { i, r ->
+            val xs = if (i in withColumn) {
+                val out = ArrayList<Double>(r.xs.size + 1)
+                for (x in r.xs) {
+                    if (x < at - 0.5) out.add(x)
+                    else if (abs(x - at) <= 0.5) { out.add(x); out.add(x + width) }
+                    else out.add(x + width)
+                }
+                out
+            } else if (r.xs.isNotEmpty() && r.xs.first() >= at - 0.5) r.xs.map { it + width } else r.xs
+            r.copy(xs = xs)
+        },
+        fallbackCell,
+    )
+
+    /** Grilla tras borrar la columna [xl, xr] (la imagen se achica xr - xl). */
+    fun removeColumn(xl: Double, xr: Double, withColumn: Set<Int>): CellGrid {
+        val w = xr - xl
+        return CellGrid(
+            rows.mapIndexed { i, r ->
+                val xs = if (i in withColumn) {
+                    r.xs.filter { abs(it - xr) > 0.5 || abs(it - xl) <= 0.5 }
+                        .map { if (it > xr - 0.5) it - w else it }
+                        .distinctBy { (it * 2).roundToInt() }
+                } else if (r.xs.isNotEmpty() && r.xs.first() >= xr - 0.5) r.xs.map { it - w } else r.xs
+                r.copy(xs = xs)
+            },
+            fallbackCell,
+        )
+    }
+
     companion object {
+        /**
+         * Nuevo borde horizontal de una fila (izquierda, derecha) al insertar una
+         * columna de ancho [width] en [at]. [hasColumn]: la fila contiene la columna.
+         */
+        fun rowEdgesAfterInsert(left: Double, right: Double, at: Double, width: Double, hasColumn: Boolean): Pair<Double, Double> =
+            if (hasColumn) (if (left <= at + 0.5) left else left + width) to right + width
+            else if (left >= at - 0.5) (left + width) to (right + width)
+            else left to right
+
+        /** Nuevo borde horizontal de una fila al borrar la columna [xl, xr]. */
+        fun rowEdgesAfterRemove(left: Double, right: Double, xl: Double, xr: Double, hasColumn: Boolean): Pair<Double, Double> {
+            val w = xr - xl
+            return if (hasColumn) (if (left <= xl + 0.5) left else left - w) to (right - w)
+            else if (left >= xr - 0.5) (left - w) to (right - w)
+            else left to right
+        }
+
         /** Margen interior que conserva las líneas de la cuadrícula al editar una celda. */
         fun interior(cell: IntBox): IntBox {
             val inset = max(2, (0.12 * min(cell.width, cell.height)).roundToInt())

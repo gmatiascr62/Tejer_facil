@@ -28,7 +28,7 @@ object Routes {
     fun reader(diagramId: Long) = "lector/$diagramId"
     fun crop(patternId: Long, page: Int) = "recortes/$patternId/$page"
     fun rows(diagramId: Long) = "filas/$diagramId"
-    fun symbols(diagramId: Long) = "simbolos/$diagramId"
+    fun symbols(diagramId: Long, columns: Boolean = false) = "simbolos/$diagramId?columnas=$columns"
 }
 
 @Composable
@@ -68,7 +68,7 @@ fun AppNavHost(container: AppContainer, importRequests: StateFlow<Long>) {
                 container = container, patternId = id,
                 onOpenDiagram = { nav.navigate(Routes.reader(it)) },
                 onEditCrops = { page -> nav.navigate(Routes.crop(id, page)) },
-                onEditSymbols = { nav.navigate(Routes.symbols(it)) },
+                onEditSymbols = { did, columns -> nav.navigate(Routes.symbols(did, columns)) },
                 onOpenPattern = { nav.navigate(Routes.gallery(it)) },
                 onBack = { nav.popBackStack() },
             )
@@ -81,7 +81,7 @@ fun AppNavHost(container: AppContainer, importRequests: StateFlow<Long>) {
             ReaderScreen(
                 container = container, diagramId = id,
                 onEditRows = { nav.navigate(Routes.rows(id)) },
-                onEditSymbols = { did -> nav.navigate(Routes.symbols(did)) },
+                onEditSymbols = { did, columns -> nav.navigate(Routes.symbols(did, columns)) },
                 onBack = { nav.popBackStack() },
             )
         }
@@ -100,10 +100,17 @@ fun AppNavHost(container: AppContainer, importRequests: StateFlow<Long>) {
             )
         }
         composable(
-            "simbolos/{diagramId}",
-            arguments = listOf(navArgument("diagramId") { type = NavType.LongType }),
+            "simbolos/{diagramId}?columnas={columnas}",
+            arguments = listOf(
+                navArgument("diagramId") { type = NavType.LongType },
+                navArgument("columnas") { type = NavType.BoolType; defaultValue = false },
+            ),
         ) { entry ->
-            SymbolEditorScreen(container, entry.arguments!!.getLong("diagramId"), onBack = { nav.popBackStack() })
+            SymbolEditorScreen(
+                container, entry.arguments!!.getLong("diagramId"), onBack = { nav.popBackStack() },
+                initialTool = if (entry.arguments!!.getBoolean("columnas")) com.tejerfacil.app.ui.symbols.SymbolTool.COLUMNS
+                else com.tejerfacil.app.ui.symbols.SymbolTool.SELECT,
+            )
         }
         composable(
             "filas/{diagramId}",

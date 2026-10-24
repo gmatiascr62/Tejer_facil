@@ -21,6 +21,32 @@ class CellGridTest {
     }
 
     @Test
+    fun insertarYBorrarColumnaActualizaLasCeldas() {
+        // Fila 0: celdas 0..4 (líneas 0,10,..,50). Fila 1: celdas 2..4 (20..50). Fila 2: a la derecha (60..80).
+        val g = CellGrid(
+            listOf(
+                CellGrid.RowCells(0.0, 10.0, listOf(0.0, 10.0, 20.0, 30.0, 40.0, 50.0)),
+                CellGrid.RowCells(10.0, 20.0, listOf(20.0, 30.0, 40.0, 50.0)),
+                CellGrid.RowCells(20.0, 30.0, listOf(60.0, 70.0, 80.0)),
+            ),
+            10.0,
+        )
+        // Columna [20, 30]: la tienen las filas 0 y 1.
+        val with = g.rowsWithColumn(20.0, 30.0)
+        assertEquals(setOf(0, 1), with)
+        val ins = g.insertColumn(20.0, 10.0, with)
+        assertEquals(listOf(0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0), ins.rows[0].xs)
+        assertEquals(listOf(20.0, 30.0, 40.0, 50.0, 60.0), ins.rows[1].xs)
+        assertEquals(listOf(70.0, 80.0, 90.0), ins.rows[2].xs) // desplazada entera
+        val rem = ins.removeColumn(20.0, 30.0, ins.rowsWithColumn(20.0, 30.0))
+        assertEquals(g.rows.map { it.xs }, rem.rows.map { it.xs })
+        // Bordes de filas.
+        assertEquals(20.0 to 60.0, CellGrid.rowEdgesAfterInsert(20.0, 50.0, 20.0, 10.0, true))
+        assertEquals(70.0 to 90.0, CellGrid.rowEdgesAfterInsert(60.0, 80.0, 20.0, 10.0, false))
+        assertEquals(0.0 to 40.0, CellGrid.rowEdgesAfterRemove(0.0, 50.0, 20.0, 30.0, true))
+    }
+
+    @Test
     fun ubicaLaCeldaTocadaEnFormaIrregular() {
         val rows = 8
         val spans = (0 until rows).map { r -> r until (16 - r) }

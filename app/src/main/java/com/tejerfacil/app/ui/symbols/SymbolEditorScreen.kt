@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -32,9 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,8 +60,17 @@ import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SymbolEditorScreen(container: AppContainer, diagramId: Long, onBack: () -> Unit) {
-    val vm: SymbolEditorViewModel = viewModel(key = "simbolos_$diagramId") { SymbolEditorViewModel(container, diagramId) }
+fun SymbolEditorScreen(
+    container: AppContainer,
+    diagramId: Long,
+    onBack: () -> Unit,
+    initialTool: SymbolTool = SymbolTool.SELECT,
+) {
+    val vm: SymbolEditorViewModel = viewModel(key = "simbolos_${diagramId}_$initialTool") {
+        SymbolEditorViewModel(container, diagramId, initialTool)
+    }
+    val columnMarks by vm.columnMarks.collectAsState()
+    val hasColumn by vm.hasColumn.collectAsState()
     val image by vm.image.collectAsState()
     val tool by vm.tool.collectAsState()
     val clipboard by vm.clipboard.collectAsState()
@@ -79,11 +88,12 @@ fun SymbolEditorScreen(container: AppContainer, diagramId: Long, onBack: () -> U
     var deleting by remember { mutableStateOf<File?>(null) }
     val markColor = Color(0xFFD81B60)
     val selColor = Color(0xFF1E88E5)
+    val colColor = Color(0xFF2E7D32)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Editar símbolos") },
+                title = { Text(if (tool == SymbolTool.COLUMNS) "Editar columnas" else "Editar símbolos") },
                 navigationIcon = {
                     IconButton(onClick = { if (dirty) confirmExit = true else onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") }
                 },
@@ -97,20 +107,23 @@ fun SymbolEditorScreen(container: AppContainer, diagramId: Long, onBack: () -> U
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
                 Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         val tools = listOf(
                             SymbolTool.SELECT to "Seleccionar", SymbolTool.COPY to "Copiar",
-                            SymbolTool.PASTE to "Pegar", SymbolTool.ERASE to "Borrar",
+                            SymbolTool.PASTE to "Pegar", SymbolTool.ERASE to "Borrar", SymbolTool.COLUMNS to "Columnas",
                         )
-                        tools.forEachIndexed { i, (t, label) ->
-                            SegmentedButton(
-                                selected = tool == t,
-                                onClick = { vm.setTool(t) },
-                                shape = SegmentedButtonDefaults.itemShape(i, tools.size),
-                            ) { Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1) }
+                        tools.forEach { (t, label) ->
+                            FilterChip(selected = tool == t, onClick = { vm.setTool(t) }, label = { Text(label) })
                         }
                     }
                     Text(message, style = MaterialTheme.typography.bodyMedium)
+                    if (tool == SymbolTool.COLUMNS) {
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { vm.insertColumn(left = true) }, enabled = hasColumn) { Text("Insertar a la izquierda") }
+                            OutlinedButton(onClick = { vm.insertColumn(left = false) }, enabled = hasColumn) { Text("Insertar a la derecha") }
+                            OutlinedButton(onClick = vm::deleteColumn, enabled = hasColumn) { Text("Borrar columna") }
+                        }
+                    }
                     if (tool == SymbolTool.SELECT) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(onClick = vm::copySelection, enabled = selectionCount > 0) { Text("Copiar selección") }
@@ -165,7 +178,8 @@ fun SymbolEditorScreen(container: AppContainer, diagramId: Long, onBack: () -> U
                     onViewChanged = {},
                     onRowTap = {},
                     onImageTap = vm::tap,
-                    marks = selectionMarks.map { it to selColor } + listOfNotNull(mark?.let { it to markColor }),
+                    marks = selectionMarks.map { it to selColor } + columnMarks.map { it to colColor } +
+                        listOfNotNull(mark?.takeIf { tool != SymbolTool.COLUMNS }?.let { it to markColor }),
                     onImageDrag = if (tool == SymbolTool.SELECT) vm::dragSelect else null,
                     onImageDragEnd = vm::dragEnd,
                 )

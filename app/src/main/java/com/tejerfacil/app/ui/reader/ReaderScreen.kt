@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.filled.MoreVert
@@ -77,7 +78,7 @@ fun ReaderScreen(
     container: AppContainer,
     diagramId: Long,
     onEditRows: () -> Unit,
-    onEditSymbols: (Long) -> Unit,
+    onEditSymbols: (Long, Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     val vm: ReaderViewModel = viewModel(key = "lector_$diagramId") { ReaderViewModel(container, diagramId) }
@@ -90,6 +91,7 @@ fun ReaderScreen(
     var showColors by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var askCopy by remember { mutableStateOf(false) }
+    var askColumns by remember { mutableStateOf(false) }
     val busy by vm.busy.collectAsState()
 
     val rows = remember(rowEntities) { rowEntities.map { NormRect(it.left, it.top, it.right, it.bottom) } }
@@ -159,7 +161,17 @@ fun ReaderScreen(
                                 leadingIcon = { Icon(Icons.Filled.Brush, null) },
                                 onClick = {
                                     menu = false
-                                    if (vm.isCopy.value) onEditSymbols(diagramId) else askCopy = true
+                                    askColumns = false
+                                    if (vm.isCopy.value) onEditSymbols(diagramId, false) else askCopy = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Editar columnas") },
+                                leadingIcon = { Icon(Icons.Filled.ViewColumn, null) },
+                                onClick = {
+                                    menu = false
+                                    askColumns = true
+                                    if (vm.isCopy.value) onEditSymbols(diagramId, true) else askCopy = true
                                 },
                             )
                             DropdownMenuItem(
@@ -258,11 +270,12 @@ fun ReaderScreen(
         AlertDialog(
             onDismissRequest = { askCopy = false },
             title = { Text("Editar símbolos") },
-            text = { Text("Para no modificar el original, los símbolos se editan en una copia del patrón. ¿Crear la copia y editar este diagrama?") },
+            text = { Text("Para no modificar el original, los cambios se hacen en una copia del patrón. ¿Crear la copia y editar este diagrama?") },
             confirmButton = {
                 TextButton(onClick = {
                     askCopy = false
-                    vm.copyPatternForEditing { copyDiagramId -> onEditSymbols(copyDiagramId) }
+                    val cols = askColumns
+                    vm.copyPatternForEditing { copyDiagramId -> onEditSymbols(copyDiagramId, cols) }
                 }) { Text("Crear copia") }
             },
             dismissButton = { TextButton(onClick = { askCopy = false }) { Text("Cancelar") } },

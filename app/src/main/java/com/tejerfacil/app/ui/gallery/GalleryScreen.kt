@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
@@ -78,6 +79,7 @@ fun GalleryScreen(
     var renaming by remember { mutableStateOf<DiagramListItem?>(null) }
     var deleting by remember { mutableStateOf<DiagramListItem?>(null) }
     var busy by remember { mutableStateOf<String?>(null) }
+    val export = com.tejerfacil.app.ui.common.rememberExportState(container)
 
     val isCopy = pattern?.copyOf != null
 
@@ -118,6 +120,9 @@ fun GalleryScreen(
                 title = { Text(pattern?.name ?: "Diagramas", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } },
                 actions = {
+                    IconButton(onClick = { export.export(patternId) }, enabled = !items.isNullOrEmpty()) {
+                        Icon(Icons.Filled.PictureAsPdf, contentDescription = "Exportar PDF")
+                    }
                     IconButton(onClick = { makeCopy(null) }) {
                         Icon(Icons.Filled.ContentCopy, contentDescription = "Crear copia editable")
                     }
@@ -176,6 +181,8 @@ fun GalleryScreen(
             }
         }
     }
+
+    com.tejerfacil.app.ui.common.ExportDialogs(export)
 
     busy?.let { msg ->
         AlertDialog(

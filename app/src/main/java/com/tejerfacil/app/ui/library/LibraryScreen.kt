@@ -70,9 +70,9 @@ fun LibraryScreen(
     var toDelete by remember { mutableStateOf<PatternSummary?>(null) }
     var copying by remember { mutableStateOf(false) }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri != null) {
-            container.importer.start(uri)
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            container.importer.start(uris)
             onImportStarted()
         }
     }
@@ -88,9 +88,9 @@ fun LibraryScreen(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { picker.launch(arrayOf("application/pdf")) },
+                onClick = { picker.launch(arrayOf("application/pdf", "image/*")) },
                 icon = { Icon(Icons.Filled.UploadFile, contentDescription = null) },
-                text = { Text("Importar PDF", style = MaterialTheme.typography.titleMedium) },
+                text = { Text("Importar", style = MaterialTheme.typography.titleMedium) },
             )
         },
     ) { padding ->
@@ -116,7 +116,7 @@ fun LibraryScreen(
                 list == null -> Unit
                 list.isEmpty() -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        "Todavía no hay patrones.\nTocá «Importar PDF» para elegir un patrón de tejido.\n\nLa app separa los diagramas, reconoce las filas y guarda tu progreso. Todo funciona sin conexión.",
+                        "Todavía no hay patrones.\nTocá «Importar» para elegir un patrón de tejido: un PDF, o una o varias imágenes (capturas o fotos).\n\nLa app separa los diagramas, reconoce las filas y guarda tu progreso. Todo funciona sin conexión.",
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodyLarge,
                     )

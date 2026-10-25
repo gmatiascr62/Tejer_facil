@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -92,6 +93,7 @@ fun ReaderScreen(
     var menu by remember { mutableStateOf(false) }
     var askCopy by remember { mutableStateOf(false) }
     var askColumns by remember { mutableStateOf(false) }
+    val export = com.tejerfacil.app.ui.common.rememberExportState(container)
     val busy by vm.busy.collectAsState()
 
     val rows = remember(rowEntities) { rowEntities.map { NormRect(it.left, it.top, it.right, it.bottom) } }
@@ -173,6 +175,11 @@ fun ReaderScreen(
                                     askColumns = true
                                     if (vm.isCopy.value) onEditSymbols(diagramId, true) else askCopy = true
                                 },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Exportar PDF") },
+                                leadingIcon = { Icon(Icons.Filled.PictureAsPdf, null) },
+                                onClick = { menu = false; diagram?.patternId?.let { export.export(it) } },
                             )
                             DropdownMenuItem(
                                 text = { Text("Editar filas") },
@@ -265,6 +272,8 @@ fun ReaderScreen(
             }
         }
     }
+
+    com.tejerfacil.app.ui.common.ExportDialogs(export)
 
     if (askCopy) {
         AlertDialog(

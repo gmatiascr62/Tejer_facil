@@ -23,6 +23,8 @@ Cada push al repositorio ejecuta el workflow **Android APK** (`.github/workflows
 | Función | Estado |
 |---|---|
 | Importar PDF con el selector del sistema; el original se copia sin modificar | Implementado |
+| Importar imágenes (capturas de pantalla, fotos de la galería, JPG/PNG), una o varias = un patrón de varias páginas; corrige la orientación de la cámara y endereza inclinaciones leves (hasta ~12°) | Implementado (sin corrección de perspectiva) |
+| Exportar un patrón a PDF (una página por diagrama, con las ediciones) para compartir o guardar | Implementado |
 | Renderizado de todas las páginas (PdfRenderer/PDFium) y progreso de análisis por página | Implementado |
 | Detección y separación de **varios diagramas por página** | Implementado (ver resultados) |
 | Descarte de texto, tablas, leyendas y fotografías | Implementado |
@@ -94,6 +96,13 @@ triangulares/escalonados y filas de alturas distintas. La app tiene pruebas de p
 progreso (Robolectric + Room) y del posicionamiento del resaltado con zoom (`ViewportMathTest`).
 
 ## Limitaciones conocidas (requieren corrección manual)
+
+- **Imágenes y fotos**: se enderezan inclinaciones leves, pero no se corrige la perspectiva (foto
+  tomada en diagonal), la hoja curvada ni la iluminación muy despareja; en esos casos la cuadrícula
+  puede no detectarse y hay que marcar el diagrama en el editor de recortes. Las capturas de pantalla
+  funcionan como un PDF. Validado con páginas reales giradas ±5–8°, con desenfoque y compresión JPEG.
+- **Exportar PDF**: exporta los diagramas (una página por diagrama), no el PDF original completo
+  con sus textos.
 
 - **Editor de símbolos**: trabaja sobre la imagen del diagrama (no reescribe el PDF). Las celdas se
   ubican con las líneas de la cuadrícula; si una celda no tiene líneas visibles se usa una celda

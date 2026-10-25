@@ -60,12 +60,30 @@ class ImportManager(
     private var job: Job? = null
 
     /** Inicia la importación; devuelve false si ya hay otra en curso. */
-    fun start(uri: Uri): Boolean {
-        if (_state.value?.running == true) return false
-        _state.value = ImportState(fileName = queryName(uri), stage = "Preparando…")
+    fun start(uri: Uri): Boolean = start(listOf(uri))
+
+    /**
+     * Importa un PDF o una o varias imágenes (capturas, fotos de la galería).
+     * Si entre los archivos hay un PDF, se importa ese PDF. Las imágenes forman
+     * un patrón con una página por imagen.
+     */
+    fun start(uris: List<Uri>): Boolean {
+        if (_state.value?.running == true || uris.isEmpty()) return false
+        val pdf = uris.firstOrNull { isPdf(it) }
+        val images = if (pdf == null) uris.filter { isImage(it) } else emptyList()
+        if (pdf == null && images.isEmpty()) {
+            _state.value = ImportState(fileName = queryName(uris.first()), stage = "", finished = true, error = "Formato no admitido: elegí un PDF o imágenes (JPG, PNG).")
+            return true
+        }
+        val name = when {
+            pdf != null -> queryName(pdf)
+            images.size == 1 -> queryName(images.first())
+            else -> "Imágenes del " + java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+        }
+        _state.value = ImportState(fileName = name, stage = "Preparando…")
         job = scope.launch(Dispatchers.Default) {
             try {
-                runImport(uri)
+                if (pdf != null) runImport(pdf) else runImportImages(images)
             } catch (e: CancellationException) {
                 _state.value = _state.value?.copy(finished = true, error = "Importación cancelada")
                 withContext(NonCancellable) { _state.value?.patternId?.let { repo.deletePattern(it) } }
@@ -77,7 +95,7 @@ class ImportManager(
                         db.patterns().get(pid)?.let { db.patterns().update(it.copy(status = "ERROR", message = t.message)) }
                     }
                 }
-                _state.value = _state.value?.copy(finished = true, error = "No se pudo procesar el PDF: ${t.message ?: t.javaClass.simpleName}")
+                _state.value = _state.value?.copy(finished = true, error = "No se pudo procesar el archivo: ${t.message ?: t.javaClass.simpleName}")
             }
         }
         return true
@@ -101,8 +119,20 @@ class ImportManager(
         return name ?: uri.lastPathSegment ?: "patron.pdf"
     }
 
+    private fun mimeOf(uri: Uri): String =
+        context.contentResolver.getType(uri) ?: when (queryName(uri).substringAfterLast('.', "").lowercase()) {
+            "pdf" -> "application/pdf"
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "heic", "heif" -> "image/heif"
+            else -> ""
+        }
+
+    private fun isPdf(uri: Uri) = mimeOf(uri) == "application/pdf"
+    private fun isImage(uri: Uri) = mimeOf(uri).startsWith("image/")
+
     private suspend fun runImport(uri: Uri) {
-        val fileName = _state.value!!.fileName
         _state.value = _state.value?.copy(stage = "Copiando el PDF…")
         val tmp = File(files.tempDir(), "importando_${System.currentTimeMillis()}.pdf")
         withContext(Dispatchers.IO) {
@@ -117,10 +147,43 @@ class ImportManager(
             )
             return
         }
+        processPdf(tmp) {}
+    }
+
+    /** Imágenes -> PDF interno (una página por imagen) -> mismo análisis que un PDF. */
+    private suspend fun runImportImages(uris: List<Uri>) {
+        val tmp = File(files.tempDir(), "imagenes_${System.currentTimeMillis()}.pdf")
+        val pages = withContext(Dispatchers.IO) {
+            ImagesToPdf.build(context, uris, tmp) { i ->
+                _state.value = _state.value?.copy(stage = "Preparando imagen ${i + 1} de ${uris.size}…")
+            }
+        }
+        if (pages == 0) {
+            tmp.delete()
+            error("No se pudo leer ninguna imagen")
+        }
+        processPdf(tmp) { patternId ->
+            // Se guardan también las imágenes originales, sin modificar.
+            withContext(Dispatchers.IO) {
+                val dir = File(files.patternDir(patternId), "imagenes").apply { mkdirs() }
+                uris.forEachIndexed { i, u ->
+                    runCatching {
+                        val ext = queryName(u).substringAfterLast('.', "jpg").take(5)
+                        context.contentResolver.openInputStream(u)?.use { inp ->
+                            File(dir, "%02d.%s".format(i + 1, ext)).outputStream().use { inp.copyTo(it) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun processPdf(tmp: File, afterInsert: suspend (Long) -> Unit) {
+        val fileName = _state.value!!.fileName
         val pageCount = PdfPageRenderer(tmp).use { it.pageCount }
         val patternId = db.patterns().insert(
             PatternEntity(
-                name = fileName.removeSuffix(".pdf").removeSuffix(".PDF"),
+                name = fileName.replace(Regex("\\.(pdf|jpe?g|png|webp|heic|heif)$", RegexOption.IGNORE_CASE), ""),
                 fileName = fileName, pdfPath = "", pageCount = pageCount,
                 importedAt = System.currentTimeMillis(), status = "PROCESSING",
             )
@@ -131,6 +194,7 @@ class ImportManager(
             tmp.copyTo(dest, overwrite = true); tmp.delete()
         }
         db.patterns().get(patternId)?.let { db.patterns().update(it.copy(pdfPath = dest.absolutePath)) }
+        afterInsert(patternId)
 
         var found = 0
         PdfPageRenderer(dest).use { renderer ->

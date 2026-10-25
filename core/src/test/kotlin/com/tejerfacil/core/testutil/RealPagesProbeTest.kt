@@ -26,12 +26,13 @@ class RealPagesProbeTest {
         val det = DiagramDetector()
         val pipeline = DiagramPipeline()
         for (f in dir.listFiles()!!.filter { it.name.endsWith(".png") && it.name.contains(filter) }.sortedBy { it.name }) {
-            val m = Imgcodecs.imread(f.absolutePath)
+            val m0 = Imgcodecs.imread(f.absolutePath)
+            val m = if (System.getProperty("deskew") == "1") (com.tejerfacil.core.vision.Deskew.straighten(m0)?.also { m0.release() } ?: m0) else m0
             val t0 = System.currentTimeMillis()
             val dbg = TestSupport.debugDir
             val res = det.detect(m, debug = if (dbg != null && System.getProperty("realMasks") == "1") { n, mat -> Imgcodecs.imwrite(File(dbg, "${f.nameWithoutExtension}_$n.png").absolutePath, mat) } else null)
             val t1 = System.currentTimeMillis()
-            println("${f.name}: ${res.diagrams.size} diagramas (${t1 - t0} ms)")
+            println("${f.name}: ${res.diagrams.size} diagramas (${t1 - t0} ms) inclinación=${com.tejerfacil.core.vision.Deskew.estimateAngle(m)}")
             TestSupport.saveDetection(f.nameWithoutExtension, m, res.diagrams, res.rejected)
             val hiFile = File(hiDir, f.name)
             val hi = if (hiFile.exists()) Imgcodecs.imread(hiFile.absolutePath) else m

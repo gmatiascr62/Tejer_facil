@@ -22,6 +22,7 @@ class AppContainer(app: Application) {
     val palette = com.tejerfacil.app.data.SymbolPalette(app)
     val processor = DiagramProcessor(db, files)
     val importer = ImportManager(app, db, files, repo, processor, scope)
+    val exporter = com.tejerfacil.app.processing.PdfExporter(app, db)
 }
 
 class TejerFacilApp : Application() {

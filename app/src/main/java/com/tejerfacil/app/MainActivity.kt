@@ -39,14 +39,17 @@ class MainActivity : ComponentActivity() {
         handleIncoming(intent)
     }
 
-    /** PDF abierto desde un administrador de archivos u otra app. */
+    /** PDF o imágenes abiertos/compartidos desde otra app. */
     private fun handleIncoming(intent: Intent?) {
-        val uri: Uri = when (intent?.action) {
-            Intent.ACTION_VIEW -> intent.data
-            Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
-            else -> null
-        } ?: return
-        if (container.importer.start(uri)) {
+        val uris: List<Uri> = when (intent?.action) {
+            Intent.ACTION_VIEW -> listOfNotNull(intent.data)
+            Intent.ACTION_SEND -> listOfNotNull(IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
+            Intent.ACTION_SEND_MULTIPLE ->
+                IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
+            else -> emptyList()
+        }
+        if (uris.isEmpty()) return
+        if (container.importer.start(uris)) {
             importRequests.value = System.nanoTime()
         } else {
             Toast.makeText(this, "Ya hay una importación en curso. Esperá a que termine.", Toast.LENGTH_LONG).show()

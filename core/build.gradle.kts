@@ -26,7 +26,7 @@ dependencies {
 tasks.test {
     maxHeapSize = "2g"
     // Propiedades opcionales para sondas manuales (ver RealPagesProbeTest).
-    for (prop in listOf("debugOut", "realPages", "realFilter", "realMasks", "rowDebug", "cellProbe")) {
+    for (prop in listOf("debugOut", "realPages", "realFilter", "realMasks", "rowDebug", "cellProbe", "deskew")) {
         systemProperty(prop, System.getProperty(prop) ?: "")
     }
     testLogging {

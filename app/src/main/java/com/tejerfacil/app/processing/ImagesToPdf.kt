@@ -64,7 +64,9 @@ object ImagesToPdf {
     fun decode(context: Context, uri: Uri): Bitmap? {
         val cr = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
+        // Con inJustDecodeBounds, decodeStream siempre devuelve null: solo se leen las medidas.
+        val stream = cr.openInputStream(uri) ?: return null
+        stream.use { BitmapFactory.decodeStream(it, null, bounds) }
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
         var sample = 1
         while (max(bounds.outWidth, bounds.outHeight) / sample > MAX_SIDE) sample *= 2
